@@ -52,7 +52,7 @@ column_names = [
     "class"      # target label: 'g' = gamma (signal), 'h' = hadron (background)
 ]
 
-# Load the data from the file
+# Load the data from the file. Using os.path.join() to adapt to other os
 # pd.read_csv works for any comma-separated file, not just .csv files
 df = pd.read_csv(
     os.path.join("data", "magic04.data"),  # path to the file
@@ -60,9 +60,7 @@ df = pd.read_csv(
     names=column_names                      # so we supply the names ourselves
 )
 
-print("=" * 60)
 print("DATA LOADED SUCCESSFULLY")
-print("=" * 60)
 
 
 # =============================================================================
@@ -72,8 +70,8 @@ print("=" * 60)
 # how many rows, how many columns, what types of data, any missing values?
 
 print("\n--- Shape of the dataset ---")
-print(f"Rows (samples):    {df.shape[0]}")
-print(f"Columns (features + target): {df.shape[1]}")
+print(f"Rows (samples): {df.shape[0]}")     # number of rows
+print(f"Columns (features + target): {df.shape[1]}")    # number of columns
 
 # WHAT TO LOOK FOR:
 # We expect 19020 rows and 11 columns (10 features + 1 class label).
@@ -84,14 +82,15 @@ print(df.dtypes)
 
 # WHAT TO LOOK FOR:
 # All feature columns should be float64 (decimal numbers).
-# The 'class' column should be object (text: 'g' or 'h').
-# If something looks wrong here, the column names may be misaligned.
+# The 'class' column should be an object (text: 'g' or 'h'). in pandas, “object” is the default 
+# data type used to store strings when a column doesn’t fit into a numeric type
+# If something looks wrong here, the column names may be misaligned or data not read correctly.
 
 print("\n--- First 5 rows ---")
 print(df.head())
 
 # WHAT TO LOOK FOR:
-# This just gives us a quick visual sanity check that the data loaded
+# This just gives us a quick visual check that the data was loaded
 # correctly and columns are aligned with their names.
 
 print("\n--- Missing values per column ---")
@@ -102,6 +101,31 @@ print(df.isnull().sum())
 # The UCI page confirms there are no missing values in this dataset.
 # If we see any non-zero numbers here, something went wrong with loading.
 
+print("\n--- Basic statistics ---")
+print(df.describe())
+
+# WHAT TO LOOK FOR:
+# All numeric columns should have reasonable min/max values.
+# Example: no negative values where they don't make sense.
+# Extremely large or tiny values may indicate scaling issues or corrupted data.
+
+print("\n--- Unique values in target column ---")
+print(df["class"].unique())
+
+# WHAT TO LOOK FOR:
+# Should only contain two values: 'g' and 'h'.
+# If you see anything else, it means data is corrupted or misread.
+
+print("\n--- Checking for hidden missing-like values ---")
+print((df == "?").sum())
+print((df == "NA").sum())
+print((df == "null").sum())
+print((df == "").sum())
+
+# WHAT TO LOOK FOR:
+# We expect all values to be 0.
+# If any are non-zero, it means missing data is hidden as text instead of NaN.
+# These must be converted to NaN before analysis.
 
 # =============================================================================
 # SECTION 4: CLASS DISTRIBUTION
@@ -118,12 +142,12 @@ print(df.isnull().sum())
 
 print("\n--- Class distribution ---")
 class_counts = df["class"].value_counts()
-class_proportions = df["class"].value_counts(normalize=True) * 100
+class_proportions = df["class"].value_counts(normalize=True) * 100     # in precentages
 
 print("Counts:")
 print(class_counts)
 print("\nProportions (%):")
-print(class_proportions.round(2))
+print(class_proportions.round(2))   # limiting to 2 decimal points
 
 # WHAT TO LOOK FOR:
 # g (gamma/signal):   ~12332 samples (~64.8%)
@@ -143,19 +167,32 @@ class_counts.plot(
     edgecolor="black"
 )
 
+ax.set_ylim(0, max(class_counts) * 1.25)    # cahnge y-axis limits for avoiding overlapping text
+
 ax.set_title("Class Distribution: Gamma vs Hadron", fontsize=13)
-ax.set_xlabel("Class (g = gamma/signal, h = hadron/background)", fontsize=11)
-ax.set_ylabel("Number of Samples", fontsize=11)
+
+# Replace the default x-axis labels with more descriptive labels
+# rotation=0 keeps the labels horizontal
 ax.set_xticklabels(["g (gamma)", "h (hadron)"], rotation=0)
+
+ax.set_xlabel("Class (g = gamma/signal, h = hadron/background)", fontsize=12, labelpad=12)
+ax.set_ylabel("Number of Samples", fontsize=12, labelpad=12)
 
 # Add the count and percentage as text on top of each bar
 for i, (count, prop) in enumerate(zip(class_counts, class_proportions)):
+    # Place text at x-position i and slightly above the bar height.
+    # \n creates a new line so the count and percentage appear on
+    # separate lines.
     ax.text(i, count + 100, f"{count}\n({prop:.1f}%)",
-            ha="center", va="bottom", fontsize=10)
+            ha="center",        # horizontally center the text
+            va="bottom",        # align the bottom of the text to the position
+            fontsize=10)
 
-plt.tight_layout()
+plt.tight_layout()      # Automatically adjust spacing so labels and titles don't overlap
+# Save the figure to a PNG file with good image quality
+# dpi=150 means 150 dots (pixels) per inch
 plt.savefig(os.path.join("results", "plots", "01_class_distribution.png"), dpi=150)
-plt.show()
+plt.show()      # Display the plot on the screen
 print("Plot saved: 01_class_distribution.png")
 
 
