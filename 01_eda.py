@@ -38,19 +38,21 @@ sns.set_theme(style="whitegrid")
 # column names manually, which we know from reading magic04.names.
 
 # Define the column names exactly as described in magic04.names
+
 column_names = [
-    "fLength",   # major axis of ellipse [mm]
-    "fWidth",    # minor axis of ellipse [mm]
-    "fSize",     # 10-log of sum of content of all pixels [#phot]
-    "fConc",     # ratio of sum of two highest pixels over fSize
-    "fConc1",    # ratio of highest pixel over fSize
-    "fAsym",     # distance from highest pixel to center, projected onto major axis [mm]
-    "fM3Long",   # 3rd root of third moment along major axis [mm]
-    "fM3Trans",  # 3rd root of third moment along minor axis [mm]
-    "fAlpha",    # angle of major axis with vector to origin [deg]
-    "fDist",     # distance from origin to center of ellipse [mm]
-    "class"      # target label: 'g' = gamma (signal), 'h' = hadron (background)
+    "fLength",   # major axis of ellipse [mm]  | length of the shower shape (long side)
+    "fWidth",    # minor axis of ellipse [mm]  | width of the shower shape (short side)
+    "fSize",     # 10-log of sum of content of all pixels [#phot]  | overall brightness / total signal strength
+    "fConc",     # ratio of sum of two highest pixels over fSize  | how concentrated the brightest pixels are
+    "fConc1",    # ratio of highest pixel over fSize  | how dominant the single brightest pixel is
+    "fAsym",     # distance from highest pixel to center, projected onto major axis [mm]  | how off-center the brightness is
+    "fM3Long",   # 3rd root of third moment along major axis [mm]  | skewness / asymmetry along main direction
+    "fM3Trans",  # 3rd root of third moment along minor axis [mm]  | skewness across the main direction
+    "fAlpha",    # angle of major axis with vector to origin [deg]  | orientation angle of the shape
+    "fDist",     # distance from origin to center of ellipse [mm]  | how far the event is from the detector center
+    "class"      # target label: 'g' = gamma (signal), 'h' = hadron (background)  | classification label (signal vs background)
 ]
+
 
 # Load the data from the file. Using os.path.join() to adapt to other os
 # pd.read_csv works for any comma-separated file, not just .csv files
@@ -203,22 +205,25 @@ print("Plot saved: 01_class_distribution.png")
 # separated by class. This tells us whether the two classes look different
 # in terms of their feature values — which is a prerequisite for any
 # classifier to work at all.
+# "Better data beats a better algorithm."
 
 feature_cols = [col for col in df.columns if col != "class"]
 # This creates a list of all column names except the target column.
 # Result: ['fLength', 'fWidth', 'fSize', ..., 'fDist']
 
+# describe() but only on rows with "g"
 print("\n--- Summary statistics for GAMMA (g) class ---")
 print(df[df["class"] == "g"][feature_cols].describe().round(3))
 
+# describe() but only on rows with "h"
 print("\n--- Summary statistics for HADRON (h) class ---")
 print(df[df["class"] == "h"][feature_cols].describe().round(3))
 
 # WHAT TO LOOK FOR:
 # Compare the means between the two classes for each feature.
 # If a feature has very different means for g vs h, it is likely useful
-# for discrimination. If the means are nearly identical, the feature
-# may not help much.
+# for discrimination (the ability to distinguish between classes). 
+# If the means are nearly identical, the feature may not help much.
 # fAlpha in particular is known from physics to be highly discriminative:
 # gamma showers point toward the telescope source, hadronic showers don't.
 
