@@ -66,3 +66,7 @@ df.drop(columns=['class']). boxplot(figsize=(14,5), rot=45)
 plt.title('Boxplot of all features')
 plt.tight_layout()
 plt.show()
+
+
+
+# define X and y
