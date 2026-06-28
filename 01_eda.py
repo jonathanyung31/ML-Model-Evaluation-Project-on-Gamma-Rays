@@ -1,17 +1,26 @@
 # =============================================================================
 # 01_eda.py — Exploratory Data Analysis (EDA)
 # =============================================================================
-# WHAT IS THIS FILE?
-# This is the first step of any machine learning project: understanding your
-# data before touching any algorithm. We look at the structure, distributions,
-# class balance, and relationships between features.
-#
-# WHY DO WE DO THIS FIRST?
-# Every decision we make later (which model to use, how to preprocess, which
-# metric to evaluate with) must be justified by what we find here. The
-# professor grades reasoning, not just results — this file builds that reasoning.
-# =============================================================================
+""" WHAT IS THIS FILE?
+ This is the first step of any machine learning project: understanding your
+ data before touching any algorithm. We look at the structure, distributions,
+ class balance, and relationships between features.
 
+ WHY DO WE DO THIS FIRST?
+ Every decision we make later (which model to use, how to preprocess, which
+ metric to evaluate with) must be justified by what we find here. The
+ professor grades reasoning, not just results — this file builds that reasoning.
+ ============================================================================="""
+
+# =============================================================================
+# SECTION 0: PROBLEM REASONING (Lecture 3a)
+# =============================================================================
+""" Before touching any algorithm, the course asks us to answer:
+ 1. What classes/data are we trying to predict? -> binary: gamma (g) vs hadron (h)
+ 2. Is a connection between data and result visible with simple methods?
+    -> we check this below with histograms, summary stats, and scatter plots.
+ 3. Is there hope for success at all?
+    -> if classes show separation in simple plots, yes; this EDA answers that."""
 
 # =============================================================================
 # SECTION 1: IMPORTS
@@ -118,6 +127,13 @@ print(df["class"].unique())
 # Should only contain two values: 'g' and 'h'.
 # If you see anything else, it means data is corrupted or misread.
 
+print("\n--- Duplicate rows ---")
+print(f"Number of duplicate rows: {df.duplicated().sum()}")
+
+# WHAT TO LOOK FOR:
+# We expect 0 duplicate rows, or at least very few.
+# If we find a meaningful number of duplicates, we should remove the extra ones
+
 print("\n--- Checking for hidden missing-like values ---")
 print((df == "?").sum())
 print((df == "NA").sum())
@@ -132,15 +148,15 @@ print((df == "").sum())
 # =============================================================================
 # SECTION 4: CLASS DISTRIBUTION
 # =============================================================================
-# Our target variable has two classes: 'g' (gamma, signal) and 'h' (hadron,
-# background). We need to check how many samples belong to each class.
-#
-# WHY DOES THIS MATTER?
-# If one class has far more samples than the other (called "class imbalance"),
-# then a naive model can cheat — it can predict the majority class every time
-# and still get high accuracy. For example, if 90% of samples are class A,
-# always predicting A gives 90% accuracy while being completely useless.
-# The MAGIC dataset description explicitly warns us about this.
+""" Our target variable has two classes: 'g' (gamma, signal) and 'h' (hadron,
+ background). We need to check how many samples belong to each class.
+
+ WHY DOES THIS MATTER?
+ If one class has far more samples than the other (called "class imbalance"),
+ then a naive model can cheat — it can predict the majority class every time
+ and still get high accuracy. For example, if 90% of samples are class A,
+ always predicting A gives 90% accuracy while being completely useless.
+ The MAGIC dataset description explicitly warns us about this."""
 
 print("\n--- Class distribution ---")
 class_counts = df["class"].value_counts()
@@ -151,13 +167,13 @@ print(class_counts)
 print("\nProportions (%):")
 print(class_proportions.round(2))   # limiting to 2 decimal points
 
-# WHAT TO LOOK FOR:
-# g (gamma/signal):   ~12332 samples (~64.8%)
-# h (hadron/background): ~6688 samples (~35.2%)
-# This is a moderately imbalanced dataset. Not extreme, but enough that
-# we CANNOT use accuracy as our main evaluation metric.
-# We will use ROC-AUC, sensitivity, and specificity instead.
-# The dataset description itself tells us this explicitly.
+""" WHAT TO LOOK FOR:
+ g (gamma/signal):   ~12332 samples (~64.8%)
+ h (hadron/background): ~6688 samples (~35.2%)
+ This is a moderately imbalanced dataset. Not extreme, but enough that
+ we CANNOT use accuracy as our main evaluation metric.
+ We will use ROC-AUC, sensitivity, and specificity instead.
+ The dataset description itself tells us this explicitly."""
 
 # --- PLOT: Class distribution bar chart ---
 fig, ax = plt.subplots(figsize=(6, 4))
@@ -201,11 +217,11 @@ print("Plot saved: 01_class_distribution.png")
 # =============================================================================
 # SECTION 5: SUMMARY STATISTICS PER CLASS
 # =============================================================================
-# We compute basic statistics (mean, std, min, max) for each feature,
-# separated by class. This tells us whether the two classes look different
-# in terms of their feature values — which is a prerequisite for any
-# classifier to work at all.
-# "Better data beats a better algorithm."
+""" We compute basic statistics (mean, std, min, max) for each feature,
+ separated by class. This tells us whether the two classes look different
+ in terms of their feature values — which is a prerequisite for any
+ classifier to work at all.
+ Better data beats a better algorithm."""
 
 feature_cols = [col for col in df.columns if col != "class"]
 # This creates a list of all column names except the target column.
@@ -219,26 +235,28 @@ print(df[df["class"] == "g"][feature_cols].describe().round(3))
 print("\n--- Summary statistics for HADRON (h) class ---")
 print(df[df["class"] == "h"][feature_cols].describe().round(3))
 
-# WHAT TO LOOK FOR:
-# Compare the means between the two classes for each feature.
-# If a feature has very different means for g vs h, it is likely useful
-# for discrimination (the ability to distinguish between classes). 
-# If the means are nearly identical, the feature may not help much.
-# fAlpha in particular is known from physics to be highly discriminative:
-# gamma showers point toward the telescope source, hadronic showers don't.
+""" WHAT TO LOOK FOR:
+ Compare the means between the two classes for each feature.
+ If a feature has very different means for g vs h, it is likely useful
+ for discrimination (the ability to distinguish between classes). 
+ If the means are nearly identical, the feature may not help much.
+ fAlpha in particular is known from physics to be highly discriminative:
+ gamma showers point toward the telescope source, hadronic showers don't."""
 
 
 # =============================================================================
 # SECTION 6: FEATURE DISTRIBUTIONS PER CLASS
 # =============================================================================
-# We plot a histogram for each feature, with the two classes overlaid.
-# This gives us a visual version of the summary statistics above.
-#
-# WHY HISTOGRAMS?
-# They show the full shape of the distribution, not just the mean.
-# Two features can have different means but completely overlapping
-# distributions — in which case a classifier will struggle to use them.
-# Conversely, even slight separation in the distributions is useful.
+""" We plot a histogram for each feature, with the two classes overlaid.
+ This gives us a visual version of the summary statistics above.
+ Overlaying helps you quickly see: separation between classes, whether a 
+ feature is good for classification and how much the distributions overlap
+
+ WHY HISTOGRAMS?
+ They show the full shape of the distribution, not just the mean.
+ Two features can have different means but completely overlapping
+ distributions — in which case a classifier will struggle to use them.
+ Conversely, even slight separation in the distributions is useful."""
 
 fig, axes = plt.subplots(
     nrows=2, ncols=5,       # 2 rows, 5 columns = 10 subplots, one per feature
@@ -246,14 +264,17 @@ fig, axes = plt.subplots(
 )
 axes = axes.flatten()       # flatten from 2D array to 1D so we can loop over it
 
-for i, col in enumerate(feature_cols):
+for i, col in enumerate(feature_cols):      # go through everything that is not the target
     ax = axes[i]
+
+    # We are trying to see if there are an differentiating feature values between the classes
+    # So we can know which features are more important for classification than others
 
     # Plot histogram for gamma class
     ax.hist(
         df[df["class"] == "g"][col],
         bins=50,
-        alpha=0.5,          # alpha controls transparency (0=invisible, 1=solid)
+        alpha=0.85,          # alpha controls transparency (0=invisible, 1=solid)
         color="steelblue",
         label="gamma (g)",
         density=True        # density=True normalizes so both classes are comparable
@@ -264,7 +285,7 @@ for i, col in enumerate(feature_cols):
     ax.hist(
         df[df["class"] == "h"][col],
         bins=50,
-        alpha=0.5,
+        alpha=0.6,
         color="coral",
         label="hadron (h)",
         density=True
@@ -275,46 +296,49 @@ for i, col in enumerate(feature_cols):
     ax.set_ylabel("Density", fontsize=9)
     ax.legend(fontsize=8)
 
-plt.suptitle(
+plt.suptitle(       # super title for the entire figure
     "Feature Distributions by Class (normalized)",
     fontsize=14,
-    y=1.02
+    y=0.98  # where it's placed here
 )
+
 plt.tight_layout()
 plt.savefig(
     os.path.join("results", "plots", "02_feature_distributions.png"),
-    dpi=150,
-    bbox_inches="tight"
+    dpi=150,        # saved in better resolution
+    bbox_inches="tight"     
 )
 plt.show()
 print("Plot saved: 02_feature_distributions.png")
 
-# WHAT TO LOOK FOR:
-# - fAlpha: should show very clear separation — gamma peaks near 0 degrees
-#   (the shower points toward the source), hadron is more uniform.
-# - fSize, fLength, fWidth: moderate separation expected.
-# - fAsym, fM3Long, fM3Trans: these are asymmetry measures; separation
-#   may be less obvious but still present.
-# Features where the two histograms heavily overlap will be harder for
-# classifiers to use. Features with clear separation are more valuable.
-
+""" WHAT WE FOUND (compared to expectations):
+ - fAlpha: confirmed strong separation as expected — gamma peaks sharply
+   near 0 degrees, hadron is much flatter and more spread out.
+ - fLength, fWidth: mild separation visible, less than fAlpha.
+ - fSize: separation is weaker than initially expected — the two
+   distributions largely overlap.
+ - fAsym, fM3Long, fM3Trans: distributions overlap heavily for both
+   classes — these look like weak discriminators on their own."""
 
 # =============================================================================
 # SECTION 7: CORRELATION MATRIX
 # =============================================================================
-# A correlation matrix shows how strongly each pair of features is linearly
-# related to each other. Values close to 1 or -1 = strong relationship.
-# Values close to 0 = little to no linear relationship.
-#
-# WHY DOES THIS MATTER?
-# If two features are highly correlated (e.g. 0.95), they carry almost
-# the same information. Including both doesn't help much and can cause
-# problems (called multicollinearity). This informs feature selection later.
-#
-# IMPORTANT WARNING — correlation ≠ causation:
-# Just because two features move together doesn't mean one causes the other.
-# Your professor gave the shark attack / ice cream example in Lecture 7.
-# We use correlation to spot redundancy, not to infer meaning.
+""" A correlation matrix shows how strongly each pair of features is linearly
+ related to each other. Values close to 1 or -1 = strong relationship.
+ Values close to 0 = little to no linear relationship.
+
+ WHY DOES THIS MATTER?
+ If two features are highly correlated (e.g. 0.95), they carry almost
+ the same information. Including both doesn't help much and can cause
+ problems - 2 features being redundent.
+ Redundancy = duplicate or overlapping information that isn't needed. 
+ This informs feature selection later.
+
+ IMPORTANT WARNING — correlation ≠ causation:
+ Just because two features move together doesn't mean one causes the other.
+ Just because shark attack and ice cream purchses rise on the same dates
+ don't mean that either of them cause the other
+ We use correlation to spot redundancy, not to causation or meaning."""
 
 corr_matrix = df[feature_cols].corr()
 
@@ -329,6 +353,7 @@ sns.heatmap(
     linewidths=0.5,
     ax=ax
 )
+
 ax.set_title("Feature Correlation Matrix", fontsize=13)
 plt.tight_layout()
 plt.savefig(
@@ -338,38 +363,59 @@ plt.savefig(
 plt.show()
 print("Plot saved: 03_correlation_matrix.png")
 
-# WHAT TO LOOK FOR:
-# - fConc and fConc1 are likely highly correlated (both measure pixel
-#   concentration ratios). If correlation > 0.9, consider noting this.
-# - fLength and fWidth may correlate (both are ellipse axis measurements).
-# - fAsym, fM3Long, fM3Trans may have lower correlations with others
-#   since they measure different geometric properties.
+""" 
+Positive correlation (e.g., fLength vs fWidth = 0.77): as one feature goes up, 
+the other tends to go up too. Bigger length → bigger width.
+Negative correlation (e.g., fSize vs fConc = −0.85): as one feature goes up, 
+the other tends to go down. Bigger fSize → smaller fConc.
+
+WHAT WE FOUND (Section 7 — correlation matrix):
+ - fConc and fConc1: r = 0.98, confirming our expectation of strong
+   redundancy (both measure pixel concentration ratios).
+
+ - fLength and fWidth: r = 0.77, correlated as expected, but weaker
+   than fConc/fConc1.
+
+ - fSize and fConc/fConc1: r = -0.85 / -0.81 — a strong relationship we
+   did not anticipate beforehand, stronger even than fLength/fWidth.
+
+ - fAsym, fM3Long, fM3Trans: all near 0 with every other feature,
+   as expected — they capture independent information."""
 
 
 # =============================================================================
 # SECTION 8: SCATTER PLOTS FOR KEY FEATURE PAIRS
 # =============================================================================
-# We pick a few of the most physically meaningful feature pairs and plot
-# them as scatter plots, coloring points by class. This is the clearest
-# visual test of whether classes are separable.
-#
-# We can't plot all 45 possible pairs (10 features = 45 combinations),
-# so we select the most informative ones based on the histogram findings.
+""" We pick a few of the most physically meaningful feature pairs and plot
+ them as scatter plots, coloring points by class. This is the clearest
+ visual test of whether classes are separable.
 
-# We use a sample of the data to keep the plot readable
-# (19020 points overlapping = hard to see anything)
-sample = df.sample(n=2000, random_state=42)
-# random_state=42 means the random sample is reproducible —
-# running the code again gives the same sample.
+ We can't plot all 45 possible pairs (10 features = 45 combinations),
+ so we select the most informative ones based on the histogram findings.
+
+ We use a sample of the data to keep the plot readable
+
+ Pairs chosen for two different reasons:
+
+ - (fAlpha, fLength), (fAlpha, fWidth), (fAlpha, fSize) → came from the 
+   histograms (fAlpha was the strongest individual separator; testing it against others).
+
+ - (fWidth, fLength), (fConc, fSize), (fConc, fConc1) → came from the correlation matrix 
+   (your three highest correlation values: 0.77, -0.85, 0.98)."""
 
 pairs_to_plot = [
     ("fAlpha", "fLength"),
+    ("fAlpha", "fWidth"),
     ("fAlpha", "fSize"),
     ("fWidth", "fLength"),
     ("fConc", "fSize"),
+    ("fConc", "fConc1"),
 ]
 
-fig, axes = plt.subplots(2, 2, figsize=(12, 10))
+# Plotting full data is too much to see difference
+sample = df.sample(n=2000, random_state=42)
+
+fig, axes = plt.subplots(2, 3, figsize=(16, 10))
 axes = axes.flatten()
 
 for i, (x_col, y_col) in enumerate(pairs_to_plot):
@@ -404,11 +450,69 @@ plt.savefig(
 plt.show()
 print("Plot saved: 04_scatter_plots.png")
 
-# WHAT TO LOOK FOR:
-# - fAlpha vs anything: gamma should cluster near low fAlpha values
-#   (near 0 degrees), hadron more spread out. This is the most important
-#   discriminating feature physically.
-# - If you see clear cluster separation in a pair, that pair will be
-#   useful for classifiers that use distance (kNN, SVM).
-# - If the two classes completely overlap, those features alone won't help.
+""" 
+WHAT WE FOUND (Section 8 — scatter plots):
 
+ - fAlpha vs fLength/fWidth: gamma clusters tightly in the low-fAlpha,
+   low-value corner; hadron spreads out across both axes. Confirms
+   fAlpha's individual separation generalizes well in 2D.
+
+ - fAlpha vs fSize: weaker separation, consistent with fSize's poor
+   individual separation in the histograms.
+
+ - fWidth vs fLength (r=0.77): visualizes the correlation as a diagonal
+   trend, but ALSO shows some separability — gamma is denser in the
+   bottom-left. Correlation does not rule out separability here.
+
+ - fConc vs fSize (r=-0.85) and fConc vs fConc1 (r=0.98): both show
+   classes almost fully intermixed along the correlation curve/line — no
+   visible separability. The strongest correlations in our data
+   correspond to the weakest separability among the pairs we checked.
+   
+   We can see from the scatter plots that levels of correlation and the histograms
+   expectations do lead to same level of seperability
+"""
+
+""" Presentation Worthy Words of Understandings:
+
+A few closing thoughts, pulling together what's actually presentation-ready from this EDA work:
+What you can confidently put on slides, with course backing:
+
+Class distribution — ~65/35 gamma/hadron split. This single slide does double duty: 
+shows the data, and sets up your justification for why accuracy is wrong and ROC/auROC 
+is right (Lecture 3b). Strong, simple, defensible.
+
+Feature separation story — fAlpha is your headline finding, backed by physics 
+reasoning (shower pointing toward source) AND visual confirmation in both 
+histograms and scatter plots. This is your strongest "we understand the domain" 
+moment — lead with it.
+
+Correlation matrix + the redundancy/separability distinction — fConc/fConc1 (0.98) 
+and fConc/fSize (−0.85) being highly correlated but showing no class separation, 
+versus fWidth/fLength (0.77) showing some separation despite being correlated too — 
+that's a genuinely interesting, data-backed nuance. It shows you're not just running 
+plots, you're interpreting them critically. Worth a sentence in your "Data" or 
+"Discussion" section.
+
+Honest framing throughout — several of your "what we found" sections diverge from 
+initial expectations (fSize weaker than predicted, fAsym/fM3Long/fM3Trans nearly 
+indistinguishable between classes). Don't hide this — say it. The professor 
+explicitly grades reasoning over results, and showing "we expected X, found Y, and 
+here's what that tells us" is exactly the kind of self-correcting process that's rewarded.
+
+What stays out of the presentation:
+
+The Cohen's d/separability score work — dropped, since it's not slide-traceable.
+IQR-based leverage checks — also dropped for the same reason; if you want to 
+mention high-leverage points or outliers at all in your final report, keep it at the 
+level your slides actually support (visual inspection, or true outlier/residual 
+analysis later once you have a trained model).
+
+One thing to keep in mind going forward: this EDA only tells you about individual and 
+paired feature behavior. None of it yet tells you how a real classifier will perform — 
+that's the entire point of Steps 3-5 next (kNN baseline, SVM, Random Forest). It's 
+worth saying explicitly in your presentation that EDA gave you hypotheses (fAlpha 
+matters most, fConc/fConc1 likely redundant) which your modeling results will need 
+to either confirm or correct — e.g., Random Forest's feature importance output later 
+is a good place to circle back and check whether fAlpha really dominates, or whether 
+the classifier finds value in features your EDA underestimated."""
