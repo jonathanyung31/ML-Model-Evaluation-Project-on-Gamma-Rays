@@ -44,7 +44,7 @@ for k in k_values:
     scores = cross_val_score(
         knn, X_train, y_train,
         cv=cv_strategy,
-        scoring="balanced_accuracy"
+        scoring="balanced_accuracy"     # average score of TPR + TNR
     )
     mean_error = 1 - scores.mean()   # convert accuracy to an error rate
     cv_errors.append(mean_error)
@@ -108,10 +108,10 @@ print("Plot saved: 06_knn_confusion_matrix.png")
 
 # SECTION 6: SENSITIVITY, SPECIFICITY, auROC
 
-tp = cm[0, 0]   # g predicted as g (TP)
-fn = cm[0, 1]   # g predicted as h (FN)
-fp = cm[1, 0]   # h predicted as g (FP)
-tn = cm[1, 1]   # h predicted as h (TN)
+tp = cm[0, 0]   # g predicted as g
+fn = cm[0, 1]   # g predicted as h
+fp = cm[1, 0]   # h predicted as g
+tn = cm[1, 1]   # h predicted as hS
 
 sensitivity = tp / (tp + fn)    # recall (TPR)
 specificity = tn / (tn + fp)    # TNR
@@ -148,6 +148,7 @@ print("Plot saved: 07_knn_roc_curve.png")
 required_fpr_thresholds = [0.01, 0.02, 0.05, 0.1, 0.2]
 
 print("\n--- Sensitivity at required FPR thresholds (per dataset documentation) ---")
+# showing the changing relationship between TPR and FPR through the ROC with specific cuttoffs
 for target_fpr in required_fpr_thresholds:
     idx = np.argmin(np.abs(fpr - target_fpr))
     print(f"FPR ~{target_fpr} (closest available point: {fpr[idx]:.3f}): sensitivity = {tpr[idx]:.3f}")
