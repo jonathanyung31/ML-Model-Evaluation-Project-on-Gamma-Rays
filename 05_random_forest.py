@@ -169,17 +169,12 @@ final_rf = RandomForestClassifier(
     max_depth=best_params["max_depth"],
     max_features="sqrt",
     random_state=42,
-    n_jobs=-1
+    n_jobs=-1   # use all CPUs
 )
 final_rf.fit(X_train, y_train)
 
 y_pred = final_rf.predict(X_test)
 y_pred_proba = final_rf.predict_proba(X_test)[:, list(final_rf.classes_).index("g")]
-
-"""WHY predict_proba?
-Same reasoning as 03_baseline_knn.py and 04_svm.py: we need a continuous
-score per point to build the ROC curve and compute auROC, rather than
-just a hard class label (Lecture 3b/5b)."""
 
 
 # =============================================================================
@@ -214,25 +209,12 @@ print("Plot saved: 12_rf_confusion_matrix.png")
 # =============================================================================
 # SECTION 7: FEATURE IMPORTANCE
 # =============================================================================
-"""One of Random Forest's key advantages over kNN and SVM is that it
-gives feature importance for free (Lecture 9, Section 39): for each
-feature, the total reduction in Gini impurity caused by splits on that
-feature is summed across all trees and all nodes. A larger total means
-that feature was consistently useful for making good splits.
 
-WHY IS THIS IMPORTANT FOR OUR PROJECT?
-In 01_eda.py we hypothesized from histograms and scatter plots that
-fAlpha is the most discriminative feature (gamma showers point toward
-the source, giving low fAlpha values). Feature importance from a trained
-classifier is a much stronger, model-backed confirmation or correction
-of that hypothesis — it closes the loop between our EDA findings and
-our modeling results, which is exactly the kind of reasoning the
-professor grades."""
-
+# feature_importances_ is a built in attribute after training a Random Forest.
 importances = final_rf.feature_importances_
-sorted_idx = np.argsort(importances)[::-1]   # sort descending
+sorted_idx = np.argsort(importances)[::-1]   # sort descending - most important first
 
-print("\n--- Feature Importance (sorted) ---")
+print("\nFeature Importance (sorted)")
 for i in sorted_idx:
     print(f"{feature_names[i]}: {importances[i]:.3f}")
 
@@ -243,24 +225,17 @@ ax.bar(
     color="darkorange",
     edgecolor="black"
 )
-ax.set_xticks(range(len(importances)))
+
+ax.set_xticks(range(len(importances)))  # where the tick marks will be at
 ax.set_xticklabels([feature_names[i] for i in sorted_idx], rotation=45, ha="right")
-ax.set_ylabel("Feature Importance (mean Gini reduction)", fontsize=11)
+
+ax.set_ylabel("Feature Importance (mean Gini reduction)", fontsize=11)  # where the tick marks will be at
 ax.set_title("Random Forest: Feature Importance", fontsize=13)
 
 plt.tight_layout()
 plt.savefig(os.path.join("results", "plots", "13_rf_feature_importance.png"), dpi=150)
 plt.show()
 print("Plot saved: 13_rf_feature_importance.png")
-
-"""WHAT TO LOOK FOR:
-We expect fAlpha to rank at or near the top, confirming our EDA
-hypothesis. Features that ranked as weak discriminators in the
-histograms (fAsym, fM3Long, fM3Trans) may still show meaningful
-importance here — Random Forest can exploit weak features in combination
-across many trees, even when they appear weak individually. Any
-surprising ranking relative to the EDA findings is worth discussing
-explicitly in 06_evaluation.py."""
 
 
 # =============================================================================
@@ -270,12 +245,12 @@ explicitly in 06_evaluation.py."""
 gamma (g) is the signal/positive class."""
 
 tp = cm[0, 0]   # true g predicted as g
-fn = cm[0, 1]   # true g predicted as h (missed signal)
-fp = cm[1, 0]   # true h predicted as g (false alarm)
+fn = cm[0, 1]   # true g predicted as h
+fp = cm[1, 0]   # true h predicted as g
 tn = cm[1, 1]   # true h predicted as h
 
-sensitivity = tp / (tp + fn)
-specificity = tn / (tn + fp)
+sensitivity = tp / (tp + fn)    # recall or TPR
+specificity = tn / (tn + fp)    # TPR
 
 print(f"\nSensitivity (gamma correctly identified): {sensitivity:.3f}")
 print(f"Specificity (hadron correctly identified): {specificity:.3f}")
@@ -291,11 +266,13 @@ print(f"auROC: {auroc:.3f}")
 FPR thresholds from magic04.names (0.01, 0.02, 0.05, 0.1, 0.2) so all
 three models line up directly in 06_evaluation.py."""
 
+# g turns to 1, h turns to 0
 fpr, tpr, thresholds = roc_curve((y_test == "g").astype(int), y_pred_proba)
 
 fig, ax = plt.subplots(figsize=(6, 6))
 ax.plot(fpr, tpr, color="darkorange", label=f"Random Forest (auROC = {auroc:.3f})")
 ax.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Random guessing")
+
 ax.set_xlabel("False Positive Rate (1 - specificity)", fontsize=11)
 ax.set_ylabel("True Positive Rate (sensitivity)", fontsize=11)
 ax.set_title("Random Forest ROC Curve", fontsize=13)

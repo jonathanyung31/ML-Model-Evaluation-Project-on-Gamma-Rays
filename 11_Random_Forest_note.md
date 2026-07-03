@@ -120,3 +120,79 @@ Overall, no strong edge effect is observed in the grid, so the current hyperpara
 set (not any subsample) with the best hyperparameters found above, then
 touch the test set exactly once for the honest, final evaluation.
 (Lecture 10 Step 6: "use as much data as you can at this stage.")"""
+
+
+"""WHY predict_proba?
+Same reasoning as 03_baseline_knn.py and 04_svm.py: we need a continuous
+score per point to build the ROC curve and compute auROC, rather than
+just a hard class label (Lecture 3b/5b)."""
+
+## =============================================================================
+## SECTION 6: CONFUSION MATRIX (ABSOLUTE AND RELATIVE)
+
+"""Same structure as 03_baseline_knn.py and 04_svm.py for direct
+comparison in 06_evaluation.py."""
+
+## =============================================================================
+## SECTION 7: FEATURE IMPORTANCE
+
+"""One of Random Forest's key advantages over kNN and SVM is that it
+gives feature importance for free (Lecture 9, Section 39): for each
+feature, the total reduction in Gini impurity caused by splits on that
+feature is summed across all trees and all nodes. A larger total means
+that feature was consistently useful for making good splits.
+
+WHY IS THIS IMPORTANT FOR OUR PROJECT?
+In 01_eda.py we hypothesized from histograms and scatter plots that
+fAlpha is the most discriminative feature (gamma showers point toward
+the source, giving low fAlpha values). Feature importance from a trained
+classifier is a much stronger, model-backed confirmation or correction
+of that hypothesis — it closes the loop between our EDA findings and
+our modeling results, which is exactly the kind of reasoning the
+professor grades."""
+
+The phrase mean Gini reduction refers to how much, on average across all trees in the forest, each feature reduced the Gini impurity when it was used for splitting. Features that produce larger reductions are considered more important.
+
+"""WHAT TO LOOK FOR:
+We expect fAlpha to rank at or near the top, confirming our EDA
+hypothesis. Features that ranked as weak discriminators in the
+histograms (fAsym, fM3Long, fM3Trans) may still show meaningful
+importance here — Random Forest can exploit weak features in combination
+across many trees, even when they appear weak individually. Any
+surprising ranking relative to the EDA findings is worth discussing
+explicitly in 06_evaluation.py."""
+
+## =============================================================================
+## SECTION 8: SENSITIVITY, SPECIFICITY, auROC
+
+"""Same label convention as 03_baseline_knn.py and 04_svm.py:
+gamma (g) is the signal/positive class."""
+
+
+## =============================================================================
+## SECTION 9: ROC CURVE AND REPORTING AT REQUIRED FPR THRESHOLDS
+
+"""Same structure as 03_baseline_knn.py and 04_svm.py, using the same
+FPR thresholds from magic04.names (0.01, 0.02, 0.05, 0.1, 0.2) so all
+three models line up directly in 06_evaluation.py."""
+
+
+# =============================================================================
+# SECTION 10: NOTE ON FEATURE SELECTION AND HIGH LEVERAGE / OUTLIERS
+# =============================================================================
+"""Per Lecture 3b (mistake #2) and Lecture 7, feature selection and
+outlier/high-leverage analysis are model-specific. For this Random Forest
+model we use all 10 features, consistent with our kNN baseline and SVM,
+keeping the comparison fair across models.
+
+NOTE: unlike kNN and SVM, Random Forest is comparatively robust to
+high-leverage points (Lecture 9) — the bagging procedure means no single
+extreme point dominates all trees, only the subset of bootstrap samples
+it happens to appear in. This is a genuine advantage over SVM, where
+extreme points near the margin can become support vectors and directly
+shift the decision boundary.
+
+A deeper outlier/high-leverage analysis comparing which specific test
+points all three models consistently misclassify is deferred to
+06_evaluation.py, where all three models' predictions are available
+simultaneously for comparison."""
