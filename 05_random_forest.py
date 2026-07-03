@@ -1,36 +1,6 @@
 # =============================================================================
 # 05_random_forest.py — Advanced Classifier 2: Random Forest
 # =============================================================================
-"""WHAT IS THIS FILE?
-This is the fifth step of the project: training our second advanced
-classifier, a Random Forest. Random Forest is "advanced" relative to our
-kNN baseline because it combines many decision trees (Lecture 9) through
-bagging and random feature selection, producing a much more stable and
-accurate classifier than any single tree alone.
-
-WHY RANDOM FOREST FOR THIS DATASET?
-Three reasons, all grounded in what we found in 01_eda.py:
-1. Several features (fAsym, fM3Long, fM3Trans) showed weak individual
-   separation in our histograms — Random Forest can still find value in
-   weak features by combining them across many trees, whereas a linear
-   model would underweight them.
-2. The ~65/35 class imbalance is handled more gracefully by Random Forest
-   than by distance-based methods like kNN, since tree splits are based
-   on information gain (Gini/RSS), not distances.
-3. Random Forest gives feature importance for free (Lecture 9, Section
-   39) — this lets us directly check whether fAlpha, which our EDA
-   identified as the most discriminative feature, truly dominates when
-   a real classifier is trained. This closes the loop between our EDA
-   hypotheses and our modeling results.
-
-DOES RANDOM FOREST NEED NORMALIZED DATA?
-No — decision trees split one feature at a time using a threshold
-(e.g. "fAlpha < 17?"), not a distance calculation across all features
-simultaneously (Lecture 9, Section 27). Normalization has no effect on
-where splits land or how the tree grows. We still use the normalized
-data from 02_preprocessing.py for pipeline consistency across all three
-models, but this is not a requirement for Random Forest specifically."""
-
 
 # =============================================================================
 # SECTION 1: IMPORTS AND LOAD PREPROCESSED DATA
@@ -49,12 +19,12 @@ from sklearn.metrics import (
 
 X_train = pd.read_csv(os.path.join("data", "processed", "X_train.csv"))
 X_test = pd.read_csv(os.path.join("data", "processed", "X_test.csv"))
-y_train = pd.read_csv(os.path.join("data", "processed", "y_train.csv")).squeeze()
-y_test = pd.read_csv(os.path.join("data", "processed", "y_test.csv")).squeeze()
+y_train = pd.read_csv(os.path.join("data", "processed", "y_train.csv")).squeeze()   # into pandas series
+y_test = pd.read_csv(os.path.join("data", "processed", "y_test.csv")).squeeze()     # into pandas series
 
 feature_names = X_train.columns.tolist()
-# store feature names now, before any numpy conversion, so we can label
-# the feature importance plot in Section 7 correctly
+# store feature names now, before any numpy conversion so labels don't get lost 
+# before Section 7 where we need it to plot feature importance
 
 print("Loaded preprocessed data:")
 print(f"X_train: {X_train.shape}, X_test: {X_test.shape}")
@@ -90,32 +60,16 @@ print(f"X_train: {X_train.shape}, X_test: {X_test.shape}")
 # =============================================================================
 # SECTION 3: HYPERPARAMETER TUNING VIA CROSS-VALIDATION
 # =============================================================================
-"""We tune n_estimators and max_depth using cross-validation on the
-training set only (Lecture 3b/7) — the test set remains locked.
-max_features is left at its default (sqrt(p) ≈ 3), which Lecture 9
-identifies as the standard recommended starting value.
-
-WHY THESE SPECIFIC RANGES?
-n_estimators: we test [50, 100, 200, 300] — small enough to run quickly,
-large enough to see where the error stabilizes. Lecture 9 notes that
-beyond a certain number of trees, adding more changes results very little.
-max_depth: we test [None, 5, 10, 20] — None (fully grown trees) is the
-bagging default; shallower depths add regularization (Lecture 3b) and
-may generalize better if full trees overfit."""
 
 cv_strategy = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
-"""WHY STRATIFIED K-FOLD AGAIN?
-Same reasoning as 03_baseline_knn.py: each fold must preserve the
-~65/35 class ratio so cross-validation results are not distorted by
-folds with an unrepresentative class balance."""
+n_estimators_values = [50, 100, 200, 300]   # B number of trees
+max_depth_values = [None, 5, 10, 20]    # maximum level each tree could go to
 
-n_estimators_values = [50, 100, 200, 300]
-max_depth_values = [None, 5, 10, 20]
-
+# initialize with lowest possible value so any real score will replace it
 best_score = -np.inf
-best_params = {}
-results = []
+best_params = {}    # to store best parameters
+results = []    # to store all that was tested already
 
 print("\n--- Hyperparameter search (n_estimators x max_depth) ---")
 
@@ -131,8 +85,10 @@ for n_est in n_estimators_values:
         scores = cross_val_score(
             rf, X_train, y_train,
             cv=cv_strategy,
-            scoring="balanced_accuracy"
+            scoring="balanced_accuracy"     # average score of TPR + TNR
         )
+
+        # as each calibration runs 5 times (for 5 folds) we need its averaged stats
         mean_score = scores.mean()
         std_score = scores.std()
         mean_error = 1 - mean_score
@@ -146,37 +102,26 @@ for n_est in n_estimators_values:
         })
 
         print(f"n_est={n_est}, depth={depth}: "
-              f"balanced_acc={mean_score:.3f} (std={std_score:.3f})")
+              f"balanced_acc={mean_score:.3f} (std={std_score:.3f}) (meaned error={mean_error:.3f})")
 
-        if mean_score > best_score:
+        if mean_score > best_score or (
+            mean_score == best_score and n_est < best_params["n_estimators"]
+        ):
             best_score = mean_score
             best_params = {"n_estimators": n_est, "max_depth": depth}
 
 print(f"\nBest parameters: {best_params}")
 print(f"Best CV balanced accuracy: {best_score:.3f}")
 
-"""WHY BALANCED ACCURACY FOR TUNING?
-Same justification as 03_baseline_knn.py: it directly addresses the
-class imbalance found in 01_eda.py. Final headline comparison between
-models still uses auROC — balanced accuracy here is only for selecting
-hyperparameters during cross-validation, not the final reported metric.
-The std across folds is also printed to check stability of the estimate,
-connecting to Lecture 7's point that a single number without spread
-information can be misleading."""
-
 
 # =============================================================================
 # SECTION 4: VISUALIZE HYPERPARAMETER SEARCH RESULTS
 # =============================================================================
-"""We show a heatmap of balanced accuracy across all (n_estimators,
-max_depth) combinations, exactly as we did for SVM's (C, gamma) grid in
-04_svm.py. This makes the best region visually obvious and lets us check
-whether the best combination sits at an edge of the grid (which would
-suggest we should extend the search range)."""
 
-results_df = pd.DataFrame(results)
 
-pivot = results_df.pivot(
+results_df = pd.DataFrame(results)  # turned into tables with labels
+
+pivot = results_df.pivot(   # shaping it into matrix format
     index="max_depth",
     columns="n_estimators",
     values="mean_balanced_acc"
@@ -184,10 +129,13 @@ pivot = results_df.pivot(
 
 fig, ax = plt.subplots(figsize=(8, 5))
 im = ax.imshow(pivot.values, cmap="viridis", aspect="auto")
-ax.set_xticks(range(len(pivot.columns)))
-ax.set_xticklabels(pivot.columns)
-ax.set_yticks(range(len(pivot.index)))
-ax.set_yticklabels([str(d) for d in pivot.index])
+
+ax.set_xticks(range(len(pivot.columns)))    # adding number of ticks for x-axis
+ax.set_xticklabels(pivot.columns)           # where should ticks appear at
+
+ax.set_yticks(range(len(pivot.index)))      # adding number of ticks for y-axis
+ax.set_yticklabels([str(d) for d in pivot.index])   # where ticks should appear at
+
 ax.set_xlabel("n_estimators (number of trees)", fontsize=11)
 ax.set_ylabel("max_depth", fontsize=11)
 ax.set_title("Random Forest: Balanced Accuracy (CV)", fontsize=13)
@@ -195,29 +143,26 @@ fig.colorbar(im, ax=ax, label="Balanced Accuracy")
 
 for i in range(len(pivot.index)):
     for j in range(len(pivot.columns)):
-        ax.text(j, i, f"{pivot.values[i, j]:.3f}",
-                ha="center", va="center", color="white", fontsize=9)
+        value = pivot.values[i, j]
+
+        if value > 0.80:
+            color = "black"
+        else:
+            color = "white"
+
+        ax.text(j, i, f"{value:.3f}",
+                ha="center", va="center",
+                color=color, fontsize=9)
 
 plt.tight_layout()
 plt.savefig(os.path.join("results", "plots", "11_rf_hyperparameter_search.png"), dpi=150)
 plt.show()
 print("Plot saved: 11_rf_hyperparameter_search.png")
 
-"""WHAT TO LOOK FOR:
-The best (n_estimators, max_depth) should not sit at an edge of the
-grid — if n_estimators=300 is still clearly best, the error may not
-have stabilized yet and we should try larger values. If max_depth=None
-(fully grown) is clearly best, then pruning hurts this dataset and
-trees should be left to grow fully."""
-
 
 # =============================================================================
 # SECTION 5: TRAIN FINAL MODEL ON FULL TRAINING SET, EVALUATE ON TEST SET
 # =============================================================================
-"""Same principle as 04_svm.py Section 5: retrain on the FULL training
-set (not any subsample) with the best hyperparameters found above, then
-touch the test set exactly once for the honest, final evaluation.
-(Lecture 10 Step 6: "use as much data as you can at this stage.")"""
 
 final_rf = RandomForestClassifier(
     n_estimators=best_params["n_estimators"],

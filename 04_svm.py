@@ -19,8 +19,8 @@ from sklearn.metrics import (
 
 X_train = pd.read_csv(os.path.join("data", "processed", "X_train.csv"))
 X_test = pd.read_csv(os.path.join("data", "processed", "X_test.csv"))
-y_train = pd.read_csv(os.path.join("data", "processed", "y_train.csv")).squeeze()
-y_test = pd.read_csv(os.path.join("data", "processed", "y_test.csv")).squeeze()
+y_train = pd.read_csv(os.path.join("data", "processed", "y_train.csv")).squeeze()   # into pandas series
+y_test = pd.read_csv(os.path.join("data", "processed", "y_test.csv")).squeeze()   # into pandas series
 
 print("Loaded preprocessed data:")
 print(f"X_train: {X_train.shape}, X_test: {X_test.shape}")

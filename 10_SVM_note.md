@@ -63,6 +63,9 @@ combination in param_grid — 4 x 4 = 16 combinations — using cross-
 validation on the (sub-sampled) training data only, exactly as Lecture
 3b/7 requires: no test data is touched during this tuning step."""
 
+We decided on that rather than on a manual search for mean, std, error, etc. like kNN and RF because SVM training is more expensive to train manually - each model takes longer than kNN or RF trees and grid becomes slow quickly. GridSearchCV is already optimized - 
+parallelized (n_jobs=-1), cleaner code, less error-prone. SVM is less abou “interpretation curves” - unlike kNN (k vs error curve), or RF (depth vs stability), SVM hyperparameters are less visually intuitive.
+
 ## =============================================================================
 ## SECTION 4: VISUALIZE THE GRID SEARCH RESULTS
 
