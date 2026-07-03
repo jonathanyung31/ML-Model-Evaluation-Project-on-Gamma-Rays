@@ -115,7 +115,7 @@ fig, ax = plt.subplots(figsize=(6, 4))
 class_counts.plot(
     kind="bar",
     ax=ax,
-    color=["steelblue", "coral"],
+    color=["deepskyblue", "blueviolet"],
     edgecolor="black"
 )
 
@@ -194,7 +194,7 @@ for i, col in enumerate(feature_cols):      # go through everything that is not 
         df[df["class"] == "g"][col],
         bins=50,
         alpha=0.85,          # alpha controls transparency (0=invisible, 1=solid)
-        color="steelblue",
+        color="deepskyblue",
         label="gamma (g)",
         density=True        # density=True normalizes so both classes are comparable
                             # even though they have different numbers of samples
@@ -205,7 +205,7 @@ for i, col in enumerate(feature_cols):      # go through everything that is not 
         df[df["class"] == "h"][col],
         bins=50,
         alpha=0.6,
-        color="coral",
+        color="blueviolet",
         label="hadron (h)",
         density=True
     )
@@ -239,9 +239,9 @@ fig, axes = plt.subplots(nrows=1, ncols=2, figsize=(11, 4.5))
 
 for ax, col in zip(axes, slide_features):
     ax.hist(df[df["class"] == "g"][col], bins=40, alpha=0.85,
-             color="steelblue", label="gamma (g)", density=True)
+             color="deepskyblue", label="gamma (g)", density=True)
     ax.hist(df[df["class"] == "h"][col], bins=40, alpha=0.6,
-             color="coral", label="hadron (h)", density=True)
+             color="blueviolet", label="hadron (h)", density=True)
     ax.set_title(col, fontsize=13)
     ax.set_xlabel("Value", fontsize=11)
     ax.set_ylabel("Density", fontsize=11)
@@ -302,7 +302,7 @@ axes = axes.flatten()
 for i, (x_col, y_col) in enumerate(pairs_to_plot):
     ax = axes[i]
 
-    for cls, color, label in [("g", "steelblue", "gamma"), ("h", "coral", "hadron")]:
+    for cls, color, label in [("g", "deepskyblue", "gamma"), ("h", "blueviolet", "hadron")]:
         subset = sample[sample["class"] == cls]
         ax.scatter(
             subset[x_col],
