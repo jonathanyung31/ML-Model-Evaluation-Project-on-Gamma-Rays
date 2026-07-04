@@ -8,6 +8,7 @@
 
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt  # matplotlib: for creating plots
 import os
 from sklearn.model_selection import train_test_split
 
@@ -29,7 +30,71 @@ print(f"Shape before cleaning: {df.shape}")
 # with an in-memory copy throughout.
 df = df.copy()
 
+print("Confirmed: 0 missing values, 0 hidden missing-value placeholders.")
+print("Decision: no filling in or row deletion needed.")
+n_duplicates = df.duplicated().sum()
+print(f"Duplicate rows found: {n_duplicates}")
 df = df.drop_duplicates(keep="first").reset_index(drop=True)
+print(f"Number of rows after removing duplicates: {len(df)}")
+
+print("Updated class distribution:")
+print(df["class"].value_counts())
+
+print("Decision: removed - with 10-decimal-precision CORSIKA-simulated")
+print("features, an exact match across all 10 features is a data-pipeline")
+print("artifact, not a genuinely repeated physical event (same reasoning")
+print("as 01_eda.py, kept consistent across both scripts).")
+
+
+# CLASS DISTRIBUTION
+
+print("\n--- Class distribution ---")
+class_counts = df["class"].value_counts()
+class_proportions = df["class"].value_counts(normalize=True) * 100     # in precentages
+
+print("Counts:")
+print(class_counts)
+print("\nProportions (%):")
+print(class_proportions.round(2))   # limiting to 2 decimal points
+
+
+# PLOT: Class distribution bar chart
+fig, ax = plt.subplots(figsize=(6, 4))
+
+class_counts.plot(
+    kind="bar",
+    ax=ax,
+    color=["deepskyblue", "blueviolet"],
+    edgecolor="black"
+)
+
+ax.set_ylim(0, max(class_counts) * 1.25)    # cahnge y-axis limits for avoiding overlapping text
+
+ax.set_title("Class Distribution: Gamma vs Hadron", fontsize=13)
+
+# Replace the default x-axis labels with more descriptive labels
+# rotation=0 keeps the labels horizontal
+ax.set_xticklabels(["g (gamma)", "h (hadron)"], rotation=0)
+
+ax.set_xlabel("Class (g = gamma/signal, h = hadron/background)", fontsize=12, labelpad=12)
+ax.set_ylabel("Number of Samples", fontsize=12, labelpad=12)
+
+# Add the count and percentage as text on top of each bar
+for i, (count, prop) in enumerate(zip(class_counts, class_proportions)):
+    # Place text at x-position i and slightly above the bar height.
+    # \n creates a new line so the count and percentage appear on
+    # separate lines.
+    ax.text(i, count + 100, f"{count}\n({prop:.1f}%)",
+            ha="center",        # horizontally center the text
+            va="bottom",        # align the bottom of the text to the position
+            fontsize=10)
+
+plt.tight_layout()      # Automatically adjust spacing so labels and titles don't overlap
+# Save the figure to a PNG file with good image quality
+# dpi=150 means 150 dots (pixels) per inch
+plt.savefig(os.path.join("results", "plots", "01_class_distribution.png"), dpi=150)
+plt.show()      # Display the plot on the screen
+print("Plot saved: 01_class_distribution.png")
 
 # SECTION 2: MISSING VALUES (NO ACTION NEEDED) & CHECK FOR DUPLICATE ROWS (NO REMOVAL)
 

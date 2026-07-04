@@ -11,45 +11,94 @@ import os
 import matplotlib.pyplot as plt
 from sklearn.neighbors import KNeighborsClassifier
 # Import tools for cross-validation and stratified k-fold splitting
-from sklearn.model_selection import cross_val_score, StratifiedKFold    
+from sklearn.model_selection import cross_val_score, StratifiedKFold, GridSearchCV  
+from sklearn.pipeline import Pipeline
+# Wrapper-method feature selection (Lecture 6, Method 3: backward elimination)
+from sklearn.feature_selection import SequentialFeatureSelector
 # Import functions for evaluating classification models
 from sklearn.metrics import (
     confusion_matrix, roc_curve, roc_auc_score,
     ConfusionMatrixDisplay
 )
+from sklearn.pipeline import Pipeline
+
 
 X_train = pd.read_csv(os.path.join("data", "processed", "X_train.csv"))
 X_test = pd.read_csv(os.path.join("data", "processed", "X_test.csv"))
-y_train = pd.read_csv(os.path.join("data", "processed", "y_train.csv")).squeeze()   # into pandas series
-y_test = pd.read_csv(os.path.join("data", "processed", "y_test.csv")).squeeze()      # into pandas series
+y_train = pd.read_csv(os.path.join("data", "processed", "y_train.csv")).squeeze()
+y_test = pd.read_csv(os.path.join("data", "processed", "y_test.csv")).squeeze()
 
 print("Loaded preprocessed data:")
 print(f"X_train: {X_train.shape}, X_test: {X_test.shape}")
 
+# prevent noise with stratification -- shared by feature selection AND
+# the k-search below, so both stages see the exact same folds
+cv_strategy = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
-# SECTION 2: CHOOSE k VALUES TO TEST (HYPERPARAMETER TUNING)
 
+# =============================================================================
+# SECTION 1b: FEATURE SELECTION -- WRAPPER METHOD (BACKWARD ELIMINATION)
+# =============================================================================
+"""WHY NESTED, AND WHY FOR kNN SPECIFICALLY?
+Lecture 7 ('Mistake 2'): doing feature selection on the whole training
+set and then reusing the same folds to tune a hyperparameter lets those
+folds indirectly influence the feature choice before they're used as
+validation folds. Fix (same lecture): 'redo feature selection
+independently inside each fold.' Wrapping the selector and the
+classifier in one Pipeline and handing that to GridSearchCV does exactly
+this — for every fold, sklearn refits the feature selector on ONLY that
+fold's training partition before scoring the candidate k on the held-out
+partition.
+
+kNN is also the model most directly hurt by irrelevant/noisy features:
+every feature enters the Euclidean distance equally, so noise features
+dilute the true signal and can trigger the curse of dimensionality
+(Lecture 4 Section 23, Lecture 5b ISLR 4.8)."""
+
+pipe_knn = Pipeline([
+    ("feature_select", SequentialFeatureSelector(
+        KNeighborsClassifier(n_neighbors=15),
+        n_features_to_select="auto",
+        tol=0.001,
+        direction="backward",
+        scoring="balanced_accuracy",
+        cv=cv_strategy,
+        n_jobs=-1
+    )),
+    ("clf", KNeighborsClassifier())
+])
 
 k_values = list(range(1, 21))
 
-# prevent noise with stratification
-cv_strategy = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+grid_search = GridSearchCV(
+    pipe_knn,
+    param_grid={"clf__n_neighbors": k_values},
+    cv=cv_strategy,
+    scoring="balanced_accuracy",
+    n_jobs=-1
+)
+grid_search.fit(X_train, y_train)
 
-# stores cross-validated error values for each k to find best hyperparameter
-cv_errors = []
+results_df = pd.DataFrame(grid_search.cv_results_)
+cv_errors = (1 - results_df["mean_test_score"]).tolist()
 
-for k in k_values:
-    knn = KNeighborsClassifier(n_neighbors=k)
+best_k = grid_search.best_params_["clf__n_neighbors"]  # CHANGED: was `k_values[np.argmin(cv_errors)]` computed later
+print(f"\nBest k selected via nested cross-validation: {best_k}")  # CHANGED: text updated to say "nested"
 
-    scores = cross_val_score(
-        knn, X_train, y_train,
-        cv=cv_strategy,
-        scoring="balanced_accuracy"     # average score of TPR + TNR
-    )
-    mean_error = 1 - scores.mean()   # convert accuracy to an error rate
-    cv_errors.append(mean_error)
-    print(f"k={k}: mean CV balanced-accuracy error = {mean_error:.3f}")
+# GridSearchCV(refit=True) already retrained the winning pipeline on the
+# FULL training set — this is normal, non-leaky final-model fitting,
+# distinct from the per-fold tuning above.
+best_pipeline = grid_search.best_estimator_  # ADDED
+selected_mask = best_pipeline.named_steps["feature_select"].get_support()  # ADDED
+selected_features = X_train.columns[selected_mask].tolist()  # CHANGED: was `X_train.columns[sfs.get_support()]`
+dropped_features = X_train.columns[~selected_mask].tolist()  # CHANGED: was `X_train.columns[~sfs.get_support()]`
 
+print(f"\n--- kNN feature selection (wrapper: backward elimination) ---")
+print(f"Selected features ({len(selected_features)}): {selected_features}")
+print(f"Dropped features ({len(dropped_features)}): {dropped_features}")
+
+# REMOVED: X_train = X_train[selected_features]   <- no longer needed, Pipeline handles this internally
+# REMOVED: X_test = X_test[selected_features]      <- no longer needed, Pipeline handles this internally
 
 # SECTION 3: PLOT VALIDATION ERROR vs k
 
@@ -66,19 +115,17 @@ plt.savefig(os.path.join("results", "plots", "05_knn_k_selection.png"), dpi=150)
 plt.show()
 print("Plot saved: 05_knn_k_selection.png")
 
-best_k = k_values[np.argmin(cv_errors)]     # finding lowest error value
-print(f"\nBest k selected via cross-validation: {best_k}")
+# REMOVED: best_k = k_values[np.argmin(cv_errors)]   <- moved up into Section 1b+2, computed from grid_search instead
 
 
 # SECTION 4: TRAIN FINAL MODEL WITH BEST k, EVALUATE ON TEST SET
 
-final_knn = KNeighborsClassifier(n_neighbors=best_k)
-final_knn.fit(X_train, y_train)
+final_knn = best_pipeline  # CHANGED: was `KNeighborsClassifier(n_neighbors=best_k)` + separate `.fit(X_train, y_train)`
 
-y_pred = final_knn.predict(X_test)
+y_pred = final_knn.predict(X_test)  # CHANGED: X_test is now the FULL feature set, Pipeline selects internally
 
 # will return probabilities for each class
-y_pred_proba = final_knn.predict_proba(X_test)[:, list(final_knn.classes_).index("g")]
+y_pred_proba = final_knn.predict_proba(X_test)[:, list(final_knn.named_steps["clf"].classes_).index("g")]  # CHANGED: `.classes_` now via `.named_steps["clf"]` since final_knn is a Pipeline
 
 
 # SECTION 5: CONFUSION MATRIX (ABSOLUTE AND RELATIVE)

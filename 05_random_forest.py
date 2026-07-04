@@ -11,7 +11,12 @@ import numpy as np
 import os
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
-from sklearn.model_selection import StratifiedKFold, cross_val_score
+from sklearn.pipeline import Pipeline
+from sklearn.model_selection import StratifiedKFold, GridSearchCV
+# Wrapper-method feature selection (Lecture 6 Quick Summary table:
+# "Backward elimination -- Start full, keep removing the worst feature";
+# same method already used for kNN and SVM, applied with RF as the judge)
+from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn.metrics import (
     confusion_matrix, roc_curve, roc_auc_score,
     ConfusionMatrixDisplay
@@ -22,9 +27,8 @@ X_test = pd.read_csv(os.path.join("data", "processed", "X_test.csv"))
 y_train = pd.read_csv(os.path.join("data", "processed", "y_train.csv")).squeeze()   # into pandas series
 y_test = pd.read_csv(os.path.join("data", "processed", "y_test.csv")).squeeze()     # into pandas series
 
-feature_names = X_train.columns.tolist()
-# store feature names now, before any numpy conversion so labels don't get lost 
-# before Section 7 where we need it to plot feature importance
+# REMOVED: feature_names = X_train.columns.tolist()   <- now set later, after feature selection picks the final subset (see Section 3+4b below)
+
 
 print("Loaded preprocessed data:")
 print(f"X_train: {X_train.shape}, X_test: {X_test.shape}")
@@ -46,6 +50,8 @@ print(f"X_train: {X_train.shape}, X_test: {X_test.shape}")
    forced to be different from each other (decorrelated), which reduces
    variance when averaged. Typical default: sqrt(p) where p = number of
    features (Lecture 9, Section 38). With p=10 features, sqrt(10) ≈ 3.
+   NOW TUNED (not fixed) below, since Lecture 9 lists it as a genuine
+   parameter of the model, not a constant.
 
 3. max_depth: how deep each tree is allowed to grow. Deeper trees =
    more flexible, higher overfitting risk (Lecture 3b, Section 2).
@@ -54,77 +60,86 @@ print(f"X_train: {X_train.shape}, X_test: {X_test.shape}")
 
 4. The split criterion: Gini index or entropy (Lecture 9, Section 32).
    Both measure node impurity — lower impurity = better split. Gini is
-   the default and generally performs similarly to entropy in practice."""
+   the default and generally performs similarly to entropy in practice."""  # CHANGED: point 2's note about tuning added
+
 
 
 # =============================================================================
-# SECTION 3: HYPERPARAMETER TUNING VIA CROSS-VALIDATION
+# SECTION 3+4b: HYPERPARAMETER TUNING + FEATURE SELECTION — NESTED TOGETHER  # CHANGED: sections merged/renamed
 # =============================================================================
+
+"""WHY NESTED, AND WHY TUNE max_features TOO?
+Same nested-CV fix as the kNN/SVM scripts (Lecture 7, Mistake 2): feature
+selection now lives inside the Pipeline that GridSearchCV cross-validates,
+so it's refit per fold rather than done once beforehand using
+hyperparameters chosen on the full (unselected) feature set.
+
+We also now tune max_features (m) instead of fixing it at 'sqrt' for
+every run — Lecture 9, Section 38 lists m as one of Random Forest's four
+core parameters (alongside B, max_depth, and split criterion), with
+sqrt(p) given only as the typical default, not a fixed constant."""  # CHANGED: docstring rewritten
 
 cv_strategy = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
-n_estimators_values = [50, 100, 200, 300]   # B number of trees
-max_depth_values = [None, 5, 10, 20]    # maximum level each tree could go to
+pipe_rf = Pipeline([  # ADDED
+    ("feature_select", SequentialFeatureSelector(  # ADDED
+        RandomForestClassifier(n_estimators=200, max_features="sqrt", random_state=42, n_jobs=-1),  # fixed probe  # ADDED
+        n_features_to_select="auto",  # ADDED
+        tol=0.001,  # ADDED
+        direction="backward",  # ADDED
+        scoring="balanced_accuracy",  # ADDED
+        cv=cv_strategy,  # ADDED
+        n_jobs=-1  # ADDED
+    )),  # ADDED
+    ("clf", RandomForestClassifier(random_state=42, n_jobs=-1))  # ADDED
+])  # ADDED
 
-# initialize with lowest possible value so any real score will replace it
-best_score = -np.inf
-best_params = {}    # to store best parameters
-results = []    # to store all that was tested already
+param_grid = {  # CHANGED: was two separate lists `n_estimators_values` / `max_depth_values` used in a manual double for-loop
+    "clf__n_estimators": [50, 100, 200, 300],  # CHANGED: was `n_estimators_values = [50, 100, 200, 300]`
+    "clf__max_depth": [None, 5, 10, 20],  # CHANGED: was `max_depth_values = [None, 5, 10, 20]`
+    "clf__max_features": ["sqrt", "log2", None],  # ADDED: max_features is now tuned instead of fixed
+}
 
-print("\n--- Hyperparameter search (n_estimators x max_depth) ---")
+grid_search = GridSearchCV(  # ADDED — replaces the old manual double for-loop + cross_val_score entirely
+    pipe_rf,  # ADDED
+    param_grid=param_grid,  # ADDED
+    cv=cv_strategy,  # ADDED
+    scoring="balanced_accuracy",  # ADDED
+    n_jobs=-1  # ADDED
+)  # ADDED
+grid_search.fit(X_train, y_train)  # ADDED
 
-for n_est in n_estimators_values:
-    for depth in max_depth_values:
-        rf = RandomForestClassifier(
-            n_estimators=n_est,
-            max_depth=depth,
-            max_features="sqrt",    # sqrt(p) — Lecture 9 default
-            random_state=42,
-            n_jobs=-1               # use all available CPU cores
-        )
-        scores = cross_val_score(
-            rf, X_train, y_train,
-            cv=cv_strategy,
-            scoring="balanced_accuracy"     # average score of TPR + TNR
-        )
-
-        # as each calibration runs 5 times (for 5 folds) we need its averaged stats
-        mean_score = scores.mean()
-        std_score = scores.std()
-        mean_error = 1 - mean_score
-
-        results.append({
-            "n_estimators": n_est,
-            "max_depth": depth,
-            "mean_balanced_acc": mean_score,
-            "std": std_score,
-            "mean_error": mean_error
-        })
-
-        print(f"n_est={n_est}, depth={depth}: "
-              f"balanced_acc={mean_score:.3f} (std={std_score:.3f}) (meaned error={mean_error:.3f})")
-
-        if mean_score > best_score or (
-            mean_score == best_score and n_est < best_params["n_estimators"]
-        ):
-            best_score = mean_score
-            best_params = {"n_estimators": n_est, "max_depth": depth}
+best_params = {  # CHANGED: was populated inside the manual for-loop via `if mean_score > best_score:` comparisons
+    "n_estimators": grid_search.best_params_["clf__n_estimators"],  # CHANGED
+    "max_depth": grid_search.best_params_["clf__max_depth"],  # CHANGED
+    "max_features": grid_search.best_params_["clf__max_features"],  # ADDED
+}
 
 print(f"\nBest parameters: {best_params}")
-print(f"Best CV balanced accuracy: {best_score:.3f}")
+print(f"Best CV balanced accuracy: {grid_search.best_score_:.3f}")  # CHANGED: was `best_score` (a plain float tracked manually)
 
+best_pipeline = grid_search.best_estimator_  # ADDED
+selected_mask = best_pipeline.named_steps["feature_select"].get_support()  # ADDED
+selected_features = X_train.columns[selected_mask].tolist()  # CHANGED: was `X_train.columns[sfs.get_support()]`, run in a separate later step
+dropped_features = X_train.columns[~selected_mask].tolist()  # CHANGED: was `X_train.columns[~sfs.get_support()]`
+feature_names = selected_features  # CHANGED: was set from the un-selected `X_train.columns.tolist()` back in Section 1
+
+print(f"\n--- Random Forest feature selection (wrapper: backward elimination) ---")
+print(f"Selected features ({len(selected_features)}): {selected_features}")
+print(f"Dropped features ({len(dropped_features)}): {dropped_features}")
 
 # =============================================================================
-# SECTION 4: VISUALIZE HYPERPARAMETER SEARCH RESULTS
+# SECTION 4: VISUALIZE HYPERPARAMETER SEARCH (slice at the winning max_features)  # CHANGED: header + logic
 # =============================================================================
 
 
-results_df = pd.DataFrame(results)  # turned into tables with labels
+results_df = pd.DataFrame(grid_search.cv_results_)  # CHANGED: was built manually from the `results` list appended inside the for-loop
+slice_df = results_df[results_df["param_clf__max_features"] == best_params["max_features"]]  # ADDED — needed since the grid is now 3D (n_estimators x max_depth x max_features)
 
-pivot = results_df.pivot(   # shaping it into matrix format
-    index="max_depth",
-    columns="n_estimators",
-    values="mean_balanced_acc"
+pivot = slice_df.pivot(  # CHANGED: was `results_df.pivot(...)`, now pivots the sliced 2D subset
+    index="param_clf__max_depth", 
+    columns="param_clf__n_estimators", 
+    values="mean_test_score"  # CHANGED: was `index="max_depth", columns="n_estimators", values="mean_balanced_acc"`
 )
 
 fig, ax = plt.subplots(figsize=(8, 5))
@@ -138,7 +153,7 @@ ax.set_yticklabels([str(d) for d in pivot.index])   # where ticks should appear 
 
 ax.set_xlabel("n_estimators (number of trees)", fontsize=11)
 ax.set_ylabel("max_depth", fontsize=11)
-ax.set_title("Random Forest: Balanced Accuracy (CV)", fontsize=13)
+ax.set_title(f"Random Forest: Balanced Accuracy (CV), max_features={best_params['max_features']}", fontsize=12)  # CHANGED: title now states which max_features slice is shown
 fig.colorbar(im, ax=ax, label="Balanced Accuracy")
 
 for i in range(len(pivot.index)):
@@ -164,14 +179,9 @@ print("Plot saved: 11_rf_hyperparameter_search.png")
 # SECTION 5: TRAIN FINAL MODEL ON FULL TRAINING SET, EVALUATE ON TEST SET
 # =============================================================================
 
-final_rf = RandomForestClassifier(
-    n_estimators=best_params["n_estimators"],
-    max_depth=best_params["max_depth"],
-    max_features="sqrt",
-    random_state=42,
-    n_jobs=-1   # use all CPUs
-)
-final_rf.fit(X_train, y_train)
+final_rf = best_pipeline.named_steps["clf"]  # CHANGED: was `RandomForestClassifier(n_estimators=..., max_depth=..., max_features="sqrt", ...)` freshly constructed + `.fit(X_train, y_train)`
+X_train = X_train[selected_features]   # keep for feature_importances_ / plotting below  # ADDED
+X_test = X_test[selected_features]  # ADDED
 
 y_pred = final_rf.predict(X_test)
 y_pred_proba = final_rf.predict_proba(X_test)[:, list(final_rf.classes_).index("g")]
@@ -295,19 +305,18 @@ for target_fpr in required_fpr_thresholds:
 # =============================================================================
 # SECTION 10: NOTE ON FEATURE SELECTION AND HIGH LEVERAGE / OUTLIERS
 # =============================================================================
-"""Per Lecture 3b (mistake #2) and Lecture 7, feature selection and
-outlier/high-leverage analysis are model-specific. For this Random Forest
-model we use all 10 features, consistent with our kNN baseline and SVM,
-keeping the comparison fair across models.
+"""Unlike an earlier draft's comment here, this Random Forest DOES use
+wrapper-based backward elimination (Section 3+4b above), now properly
+nested inside the same CV folds used for hyperparameter tuning — it is
+NOT run on all 10 features unselected.
 
-NOTE: unlike kNN and SVM, Random Forest is comparatively robust to
-high-leverage points (Lecture 9) — the bagging procedure means no single
-extreme point dominates all trees, only the subset of bootstrap samples
-it happens to appear in. This is a genuine advantage over SVM, where
-extreme points near the margin can become support vectors and directly
-shift the decision boundary.
+Random Forest is comparatively robust to high-leverage points (Lecture
+9) — bagging means no single extreme point dominates every tree, only
+the bootstrap samples it happens to land in. This is a genuine advantage
+over SVM, where extreme points near the margin can become support
+vectors and directly shift the decision boundary.
 
 A deeper outlier/high-leverage analysis comparing which specific test
 points all three models consistently misclassify is deferred to
 06_evaluation.py, where all three models' predictions are available
-simultaneously for comparison."""
+simultaneously for comparison."""  # CHANGED: opening paragraph rewritten to stop contradicting Section 3+4b

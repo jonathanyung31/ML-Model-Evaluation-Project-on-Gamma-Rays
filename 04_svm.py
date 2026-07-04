@@ -12,6 +12,10 @@ import os
 import matplotlib.pyplot as plt
 from sklearn.svm import SVC
 from sklearn.model_selection import StratifiedKFold, GridSearchCV
+from sklearn.pipeline import Pipeline  
+# Wrapper-method feature selection (Lecture 6 Quick Summary table:
+# "Backward elimination -- Start full, keep removing the worst feature")
+from sklearn.feature_selection import SequentialFeatureSelector
 from sklearn.metrics import (
     confusion_matrix, roc_curve, roc_auc_score,
     ConfusionMatrixDisplay
@@ -19,11 +23,13 @@ from sklearn.metrics import (
 
 X_train = pd.read_csv(os.path.join("data", "processed", "X_train.csv"))
 X_test = pd.read_csv(os.path.join("data", "processed", "X_test.csv"))
-y_train = pd.read_csv(os.path.join("data", "processed", "y_train.csv")).squeeze()   # into pandas series
-y_test = pd.read_csv(os.path.join("data", "processed", "y_test.csv")).squeeze()   # into pandas series
+y_train = pd.read_csv(os.path.join("data", "processed", "y_train.csv")).squeeze()
+y_test = pd.read_csv(os.path.join("data", "processed", "y_test.csv")).squeeze()
 
 print("Loaded preprocessed data:")
 print(f"X_train: {X_train.shape}, X_test: {X_test.shape}")
+
+cv_strategy = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
 
 # =============================================================================
@@ -32,7 +38,6 @@ print(f"X_train: {X_train.shape}, X_test: {X_test.shape}")
 
 from sklearn.model_selection import train_test_split
 
-# We subsample only for the training dataset
 X_train_sub, _, y_train_sub, _ = train_test_split(
     X_train, y_train,
     train_size=4000,
@@ -44,36 +49,95 @@ print(f"\nSubsample for hyperparameter search: {X_train_sub.shape[0]} rows")
 
 
 # =============================================================================
-# SECTION 3: HYPERPARAMETER SEARCH — C AND GAMMA (MULTILEVEL GRID SEARCH)
+# SECTION 2b+3: FEATURE SELECTION + C/GAMMA — NESTED, TRUE MULTILEVEL SEARCH  # CHANGED: section renamed/merged
 # =============================================================================
+"""WHY NESTED, AND WHY A REAL MULTILEVEL SEARCH?
+Same nested-CV fix as 03_baseline_knn.py (Lecture 7, Mistake 2): the
+feature selector now lives inside the Pipeline that GridSearchCV
+cross-validates, so it's refit per fold instead of once on the whole
+training set.
 
-param_grid = {
-    "C": [0.1, 1, 10, 100],
-    "gamma": [0.001, 0.01, 0.1, 1]
-}
+This also replaces the old single flat grid with an actual MULTILEVEL
+grid search (Lecture 8, Method 2: coarse grid -> find best region ->
+zoom in with a finer grid), rather than the single-pass exhaustive
+search (Lecture 8, Method 1) the previous version actually implemented
+despite being labeled 'multilevel'."""
 
-cv_strategy = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+pipe_svm = Pipeline([
+    ("feature_select", SequentialFeatureSelector(
+        SVC(kernel="rbf", C=1, gamma="scale", random_state=42),  # fixed probe
+        n_features_to_select="auto",
+        tol=0.001,
+        direction="backward",
+        scoring="balanced_accuracy",
+        cv=cv_strategy,
+        n_jobs=-1
+    )),
+    ("clf", SVC(kernel="rbf", probability=True, random_state=42))
+])
 
-# specifically made for hyperparameter tunning using grid search
-grid_search = GridSearchCV(     
-    SVC(kernel="rbf", probability=True, random_state=42),   # allows prob. - helps auROC
-    param_grid=param_grid,
-    cv=cv_strategy,
-    scoring="balanced_accuracy",    # average score of TPR + TNR
-    n_jobs=-1   # using all cpu cores to make computations much faster
-)
+# ---- Level 1: coarse grid over a wide range ----
+coarse_grid = {
+    "clf__C": [0.01, 0.1, 1, 10, 100, 1000],
+    "clf__gamma": [0.0001, 0.001, 0.01, 0.1, 1, 10]  
+}  
 
-grid_search.fit(X_train_sub, y_train_sub)   # run the grid
+coarse_search = GridSearchCV(  
+    pipe_svm, param_grid=coarse_grid,  
+    cv=cv_strategy, scoring="balanced_accuracy", n_jobs=-1  
+)  
+coarse_search.fit(X_train_sub, y_train_sub)  
 
-print("\n--- Grid search results ---")
-print(f"Best C: {grid_search.best_params_['C']}")
-print(f"Best gamma: {grid_search.best_params_['gamma']}")
+coarse_C = coarse_search.best_params_["clf__C"]  # ADDED
+coarse_gamma = coarse_search.best_params_["clf__gamma"]  # ADDED
+print("\n--- Coarse grid search results ---")  # ADDED
+print(f"Best region: C={coarse_C}, gamma={coarse_gamma}")  # ADDED
+print(f"Best coarse CV balanced accuracy: {coarse_search.best_score_:.3f}")  # ADDED
 
-# best average CV score based on balanced accuracy
+# ---- Level 2: zoom in with a finer grid around the coarse best point ----  # ADDED
+def zoom_bounds(value, grid_values):  # ADDED
+    """Return the neighbors of `value` in the sorted coarse grid, to  # ADDED
+    bound the finer grid (falls back to value/10, value*10 at the edges)."""  # ADDED
+    sorted_vals = sorted(grid_values)  # ADDED
+    idx = sorted_vals.index(value)  # ADDED
+    lo = sorted_vals[idx - 1] if idx > 0 else value / 10  # ADDED
+    hi = sorted_vals[idx + 1] if idx < len(sorted_vals) - 1 else value * 10  # ADDED
+    return lo, hi  # ADDED
+
+C_lo, C_hi = zoom_bounds(coarse_C, coarse_grid["clf__C"])  # ADDED
+gamma_lo, gamma_hi = zoom_bounds(coarse_gamma, coarse_grid["clf__gamma"])  # ADDED
+
+fine_grid = {  # ADDED
+    "clf__C": np.linspace(C_lo, C_hi, 5).tolist(),  # ADDED
+    "clf__gamma": np.geomspace(gamma_lo, gamma_hi, 5).tolist()  # log-spaced since gamma spans orders of magnitude  # ADDED
+}  # ADDED
+
+grid_search = GridSearchCV(  # CHANGED: was `GridSearchCV(SVC(...), param_grid=param_grid, ...)` — now uses `pipe_svm` + `fine_grid`
+    pipe_svm, param_grid=fine_grid,  # CHANGED
+    cv=cv_strategy, scoring="balanced_accuracy", n_jobs=-1  # CHANGED
+)  # CHANGED
+grid_search.fit(X_train_sub, y_train_sub)  # unchanged line, kept for clarity
+
+print("\n--- Fine grid search results (zoomed in) ---")  # CHANGED: text updated
+print(f"Best C: {grid_search.best_params_['clf__C']:.4g}")  # CHANGED: key is now `clf__C`
+print(f"Best gamma: {grid_search.best_params_['clf__gamma']:.4g}")  # CHANGED: key is now `clf__gamma`
 print(f"Best CV balanced accuracy: {grid_search.best_score_:.3f}")
 
-best_C = grid_search.best_params_["C"]
-best_gamma = grid_search.best_params_["gamma"]
+best_C = grid_search.best_params_["clf__C"]  # CHANGED: key is now `clf__C`
+best_gamma = grid_search.best_params_["clf__gamma"]  # CHANGED: key is now `clf__gamma`
+
+best_pipeline_probe = grid_search.best_estimator_  # ADDED
+selected_mask = best_pipeline_probe.named_steps["feature_select"].get_support()  # ADDED
+selected_features = X_train.columns[selected_mask].tolist()  # CHANGED: was `X_train.columns[sfs.get_support()]`
+dropped_features = X_train.columns[~selected_mask].tolist()  # CHANGED: was `X_train.columns[~sfs.get_support()]`
+
+print(f"\n--- SVM feature selection (wrapper: backward elimination) ---")
+print(f"Selected features ({len(selected_features)}): {selected_features}")
+print(f"Dropped features ({len(dropped_features)}): {dropped_features}")
+
+X_train = X_train[selected_features]
+X_test = X_test[selected_features]
+# REMOVED: X_train_sub = X_train_sub[selected_features]   <- X_train_sub isn't reused after this point anymore
 
 
 # =============================================================================
@@ -82,7 +146,7 @@ best_gamma = grid_search.best_params_["gamma"]
 
 results_df = pd.DataFrame(grid_search.cv_results_)
 pivot_table = results_df.pivot(
-    index="param_gamma", columns="param_C", values="mean_test_score"
+    index="param_clf__gamma", columns="param_clf__C", values="mean_test_score"
 )
 
 fig, ax = plt.subplots(figsize=(7, 5))
@@ -96,7 +160,7 @@ ax.set_yticklabels(pivot_table.index)
 
 ax.set_xlabel("C", fontsize=11)
 ax.set_ylabel("gamma", fontsize=11)
-ax.set_title("SVM Grid Search: Balanced Accuracy", fontsize=13)
+ax.set_title("SVM Grid Search: Balanced Accuracy (fine/zoomed grid)", fontsize=13)  # CHANGED: title clarifies this is the fine grid
 fig.colorbar(im, ax=ax, label="Balanced Accuracy")
 
 for i in range(len(pivot_table.index)):
@@ -221,11 +285,12 @@ result here, if time allows."""
 # =============================================================================
 # SECTION 10: NOTE ON FEATURE SELECTION AND HIGH LEVERAGE / OUTLIERS
 # =============================================================================
-"""Per Lecture 3b (mistake #2) and Lecture 7, feature selection and
-outlier/high-leverage analysis must be model-specific. For this SVM
-model, we use all 10 features without selection, consistent with our
-kNN baseline, so the two models are compared on equal footing. SVM is
-also known to be sensitive to high-leverage points (Lecture 7: such
+"""Unlike an earlier draft's comment here, this SVM model DOES use
+wrapper-based backward elimination (Section 2b+3 above), now properly
+nested inside the same CV folds used for the multilevel C/gamma search
+— it is NOT run on all 10 features unselected.
+
+SVM is known to be sensitive to high-leverage points (Lecture 7: such
 points can pull the decision boundary), since its boundary depends only
 on the support vectors — points near the margin. A deeper pass
 identifying which test points are misclassified with the largest margin

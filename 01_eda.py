@@ -42,10 +42,6 @@ df = df.copy()
 n_duplicates = df.duplicated().sum()
 print(f"Duplicate rows found: {n_duplicates}")
 
-print(f"Rows after removing duplicates: {len(df)}")
-print("Updated class distribution:")
-print(df["class"].value_counts())
-
 
 # SECTION 3: BASIC STRUCTURE
 
@@ -157,23 +153,6 @@ print(df[df["class"] == "g"][feature_cols].describe().round(3))
 # describe() but only on rows with "h"
 print("\n--- Summary statistics for HADRON (h) class ---")
 print(df[df["class"] == "h"][feature_cols].describe().round(3))
-
-
-# SECTION 5b: SIMPLE SEPARATION SCORE (justifies which features to highlight)
-# A quick, honest way to rank features by class separation without
-# claiming full statistical rigor: standardized mean difference.
-# |mean_g - mean_h| / pooled std. Bigger = classes are more separated.
-
-separation_scores = {}
-for col in feature_cols:
-    g_vals = df[df["class"] == "g"][col]
-    h_vals = df[df["class"] == "h"][col]
-    pooled_std = np.sqrt((g_vals.std()**2 + h_vals.std()**2) / 2)
-    separation_scores[col] = abs(g_vals.mean() - h_vals.mean()) / pooled_std
-
-separation_df = pd.Series(separation_scores).sort_values(ascending=False)
-print("\n--- Feature separation ranking (standardized mean difference) ---")
-print(separation_df.round(3))
 
 # SECTION 6: FEATURE DISTRIBUTIONS PER CLASS
 
