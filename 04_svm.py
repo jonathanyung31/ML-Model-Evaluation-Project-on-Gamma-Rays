@@ -59,6 +59,38 @@ X_train_sub, _, y_train_sub, _ = train_test_split(
 
 print(f"\nSubsample for hyperparameter search: {X_train_sub.shape[0]} rows")
 
+# =============================================================================
+# SECTION 2b: LINEAR SVM CHECK -- IS LINEAR SEPARABILITY ENOUGH?  # ADDED
+# =============================================================================
+"""Project.md Step 4: "Start with linear SVM to check if linear
+separability exists" -- before committing to the RBF kernel's extra
+complexity and hyperparameter search, check whether a plain linear
+boundary already does reasonably well.
+
+Tested on the SAME subsample and SAME CV folds used for the RBF search
+below, on the ORIGINAL (unselected) features -- this is a diagnostic
+that happens BEFORE feature selection, since the question here is
+whether the raw feature space is linearly separable at all, not
+whether a particular subset is. The result is compared against the
+tuned RBF score once that search finishes (see Section 3 below), and
+that comparison is the actual justification for using RBF -- not
+just an assumption."""  # ADDED
+
+from sklearn.model_selection import cross_val_score  # ADDED
+from sklearn.svm import SVC as _SVC_for_linear_check  # ADDED (avoids shadowing the SVC import used below)
+
+linear_svm_scores = cross_val_score(  # ADDED
+    _SVC_for_linear_check(kernel="linear", C=1, random_state=42),
+    X_train_sub, y_train_sub,
+    cv=cv_strategy,
+    scoring="balanced_accuracy",
+    n_jobs=-1
+)  # ADDED
+linear_svm_cv_score = linear_svm_scores.mean()  # ADDED
+
+print(f"\n--- Linear SVM check (Project.md Step 4) ---")  # ADDED
+print(f"Linear SVM CV balanced accuracy: {linear_svm_cv_score:.3f}")  # ADDED
+print("(Compared against the tuned RBF score once the grid search below finishes.)")  # ADDED
 
 # =============================================================================
 # SECTION 2b+3: FEATURE SELECTION + C/GAMMA — NESTED, TRUE MULTILEVEL SEARCH  # CHANGED: section renamed/merged
@@ -141,6 +173,21 @@ print(f"Best CV balanced accuracy: {grid_search.best_score_:.3f}")
 best_C = grid_search.best_params_["clf__C"]  # CHANGED: key is now `clf__C`
 best_gamma = grid_search.best_params_["clf__gamma"]  # CHANGED: key is now `clf__gamma`
 
+# ADDED: this is the actual justification for RBF, comparing directly
+# to the linear check from Section 2b -- both evaluated with the same
+# CV folds and the same subsample, so the comparison is apples-to-apples.
+rbf_gain = grid_search.best_score_ - linear_svm_cv_score  # ADDED
+print(f"\n--- Linear vs. RBF comparison (Project.md Step 4 justification) ---")  # ADDED
+print(f"Linear SVM CV balanced accuracy: {linear_svm_cv_score:.3f}")  # ADDED
+print(f"RBF SVM (tuned) CV balanced accuracy: {grid_search.best_score_:.3f}")  # ADDED
+if rbf_gain > 0.01:  # ADDED
+    print(f"RBF improves balanced accuracy by {rbf_gain:.3f} over linear -- "  # ADDED
+          f"the data is not fully linearly separable, justifying the RBF kernel.")  # ADDED
+else:  # ADDED
+    print(f"RBF only improves balanced accuracy by {rbf_gain:.3f} over linear -- "  # ADDED
+          f"the extra complexity of the RBF kernel may not be strongly justified here.")  # ADDED
+    
+    
 best_pipeline_probe = grid_search.best_estimator_  # ADDED
 selected_mask = best_pipeline_probe.named_steps["feature_select"].get_support()  # ADDED
 selected_features = X_train.columns[selected_mask].tolist()  # CHANGED: was `X_train.columns[sfs.get_support()]`
