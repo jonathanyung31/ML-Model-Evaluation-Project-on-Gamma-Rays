@@ -263,6 +263,13 @@ print("Plot saved: 03_correlation_matrix.png")
 
 
 # SECTION 8: SCATTER PLOTS FOR KEY FEATURE PAIRS
+"""Presentation rule: max ~2 plots per slide. Instead of eyeballing which
+pair looks most/least separable, quantify it with the same metric used
+elsewhere in this project (balanced accuracy via CV), then keep only the
+best and worst pair."""
+
+from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
+from sklearn.model_selection import cross_val_score, StratifiedKFold
 
 pairs_to_plot = [
     ("fAlpha", "fLength"),
@@ -273,40 +280,44 @@ pairs_to_plot = [
     ("fConc", "fConc1"),
 ]
 
-# Plotting full data is too much to see difference
+cv_strategy_eda = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
+
+pair_scores = {}
+for x_col, y_col in pairs_to_plot:
+    score = cross_val_score(
+        LinearDiscriminantAnalysis(),
+        df[[x_col, y_col]], df["class"],
+        cv=cv_strategy_eda,
+        scoring="balanced_accuracy"
+    ).mean()
+    pair_scores[(x_col, y_col)] = score
+
+print("\n--- Feature pair separability (LDA balanced accuracy, for slide selection) ---")
+for pair, score in sorted(pair_scores.items(), key=lambda kv: kv[1], reverse=True):
+    print(f"{pair[0]} vs {pair[1]}: {score:.3f}")
+
+best_pair = max(pair_scores, key=pair_scores.get)
+worst_pair = min(pair_scores, key=pair_scores.get)
+pairs_to_plot = [best_pair, worst_pair]
+
 sample = df.sample(n=2000, random_state=42)
 
-fig, axes = plt.subplots(2, 3, figsize=(16, 10))
+fig, axes = plt.subplots(1, 2, figsize=(12, 5.5))
 axes = axes.flatten()
 
 for i, (x_col, y_col) in enumerate(pairs_to_plot):
     ax = axes[i]
-
-    for cls, color, label in [("g", "deepskyblue", "gamma"), ("h", "magenta", "hadron")]:
+    for cls, color, label in [("g", "deepskyblue", "gamma"), ("h", "blueviolet", "hadron")]:
         subset = sample[sample["class"] == cls]
-        ax.scatter(
-            subset[x_col],
-            subset[y_col],
-            alpha=0.3,      # low alpha because many points overlap
-            s=10,           # small point size
-            color=color,
-            label=label
-        )
-
+        ax.scatter(subset[x_col], subset[y_col], alpha=0.3, s=10, color=color, label=label)
     ax.set_xlabel(x_col, fontsize=11)
     ax.set_ylabel(y_col, fontsize=11)
-    ax.set_title(f"{x_col} vs {y_col}", fontsize=12)
+    tag = "Best separated" if i == 0 else "Worst separated"
+    ax.set_title(f"{tag}: {x_col} vs {y_col} (LDA acc={pair_scores[(x_col, y_col)]:.3f})", fontsize=12)
     ax.legend(fontsize=9)
 
-plt.suptitle(
-    "Scatter Plots of Key Feature Pairs (sample of 2000)",
-    fontsize=14
-)
+plt.suptitle("Scatter Plots: Best vs. Worst Separated Feature Pair (sample of 2000)", fontsize=14)
 plt.tight_layout()
-plt.savefig(
-    os.path.join("results", "plots", "04_scatter_plots.png"),
-    dpi=150,
-    bbox_inches="tight"
-)
+plt.savefig(os.path.join("results", "plots", "04_scatter_plots.png"), dpi=150, bbox_inches="tight")
 plt.show()
 print("Plot saved: 04_scatter_plots.png")
