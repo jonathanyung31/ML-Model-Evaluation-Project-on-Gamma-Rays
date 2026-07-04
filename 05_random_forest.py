@@ -17,10 +17,24 @@ from sklearn.model_selection import StratifiedKFold, GridSearchCV
 # "Backward elimination -- Start full, keep removing the worst feature";
 # same method already used for kNN and SVM, applied with RF as the judge)
 from sklearn.feature_selection import SequentialFeatureSelector
+
 from sklearn.metrics import (
     confusion_matrix, roc_curve, roc_auc_score,
     ConfusionMatrixDisplay
 )
+from tempfile import mkdtemp  # ADDED
+from joblib import Memory  # ADDED
+
+# ADDED: the feature_select step below uses a FIXED probe classifier
+# (n_estimators=200, max_features="sqrt") that never changes across the
+# grid search over clf__n_estimators/max_depth/max_features. Without
+# caching, sklearn refits it from scratch for every one of the 48
+# (n_estimators x max_depth x max_features) combinations, even though the
+# result is identical every time. Memory caching computes it ONCE per CV
+# fold and reuses that result for every combination evaluated on that
+# fold -- this does not change the result in any way, it only removes
+# redundant recomputation.
+pipe_cache = Memory(location=mkdtemp(), verbose=0)  # ADDED
 
 X_train = pd.read_csv(os.path.join("data", "processed", "X_train.csv"))
 X_test = pd.read_csv(os.path.join("data", "processed", "X_test.csv"))
@@ -81,18 +95,22 @@ sqrt(p) given only as the typical default, not a fixed constant."""  # CHANGED: 
 
 cv_strategy = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
-pipe_rf = Pipeline([  # ADDED
+pipe_rf = Pipeline([
     ("feature_select", SequentialFeatureSelector(  # ADDED
-        RandomForestClassifier(n_estimators=200, max_features="sqrt", random_state=42, n_jobs=-1),  # fixed probe  # ADDED
+        RandomForestClassifier(n_estimators=200, max_features="sqrt", random_state=42, n_jobs=1),  # fixed probe  # ADDED
         n_features_to_select="auto",  # ADDED
         tol=0.001,  # ADDED
         direction="backward",  # ADDED
         scoring="balanced_accuracy",  # ADDED
         cv=cv_strategy,  # ADDED
-        n_jobs=-1  # ADDED
-    )),  # ADDED
-    ("clf", RandomForestClassifier(random_state=42, n_jobs=-1))  # ADDED
-])  # ADDED
+        n_jobs=1 # CHANGED: was -1 -- outer GridSearchCV already parallelizes
+                  # across grid points/folds; parallelizing here AND inside the
+                  # probe RF too oversubscribes the CPU (was 4 nested levels of
+                  # parallelism: GridSearchCV, SequentialFeatureSelector, the
+                  # probe RF, and the final clf RF, all fighting for the same cores)
+    )),
+    ("clf", RandomForestClassifier(random_state=42, n_jobs=1))  # ADDED
+], memory=pipe_cache)  # ADDED: cache feature_select's fit per fold (see note above)
 
 param_grid = {  # CHANGED: was two separate lists `n_estimators_values` / `max_depth_values` used in a manual double for-loop
     "clf__n_estimators": [50, 100, 200, 300],  # CHANGED: was `n_estimators_values = [50, 100, 200, 300]`

@@ -10,7 +10,10 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt  # matplotlib: for creating plots
 import os
+import seaborn as sns        # seaborn: for nicer statistical plots
 from sklearn.model_selection import train_test_split
+
+sns.set_theme(style="whitegrid")
 
 column_names = [
     "fLength", "fWidth", "fSize", "fConc", "fConc1",

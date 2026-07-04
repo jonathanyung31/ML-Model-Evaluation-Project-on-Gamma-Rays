@@ -16,10 +16,22 @@ from sklearn.pipeline import Pipeline
 # Wrapper-method feature selection (Lecture 6 Quick Summary table:
 # "Backward elimination -- Start full, keep removing the worst feature")
 from sklearn.feature_selection import SequentialFeatureSelector
+
 from sklearn.metrics import (
     confusion_matrix, roc_curve, roc_auc_score,
     ConfusionMatrixDisplay
 )
+from tempfile import mkdtemp
+from joblib import Memory
+
+# SPEED FIX: the feature_select step below uses a FIXED probe classifier
+# (C=1, gamma="scale") that never changes across the grid search. Without
+# caching, sklearn still refits it from scratch for every single (C, gamma)
+# combination in the grid, even though the result is identical every time.
+# Memory caching makes sklearn compute it ONCE per CV fold and reuse that
+# result for every grid point evaluated on that same fold -- this does not
+# change the result in any way, it only removes redundant recomputation.
+pipe_cache = Memory(location=mkdtemp(), verbose=0)
 
 X_train = pd.read_csv(os.path.join("data", "processed", "X_train.csv"))
 X_test = pd.read_csv(os.path.join("data", "processed", "X_test.csv"))
@@ -71,10 +83,13 @@ pipe_svm = Pipeline([
         direction="backward",
         scoring="balanced_accuracy",
         cv=cv_strategy,
-        n_jobs=-1
+        n_jobs=1    # SPEED FIX: outer GridSearchCV already parallelizes across
+                  # grid points/folds; parallelizing here too oversubscribes
+                  # the CPU (more processes than cores fighting each other)
     )),
     ("clf", SVC(kernel="rbf", probability=True, random_state=42))
-])
+], memory=pipe_cache)  # SPEED FIX: cache feature_select's fit per fold (see note above)
+
 
 # ---- Level 1: coarse grid over a wide range ----
 coarse_grid = {

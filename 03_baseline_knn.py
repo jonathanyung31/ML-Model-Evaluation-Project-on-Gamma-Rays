@@ -13,6 +13,17 @@ from sklearn.neighbors import KNeighborsClassifier
 # Import tools for cross-validation and stratified k-fold splitting
 from sklearn.model_selection import cross_val_score, StratifiedKFold, GridSearchCV  
 from sklearn.pipeline import Pipeline
+from tempfile import mkdtemp  # ADDED
+from joblib import Memory  # ADDED
+# ADDED: the feature_select step below uses a FIXED probe classifier
+# (n_neighbors=15) that never changes across the grid search over
+# clf__n_neighbors. Without caching, sklearn refits it from scratch for
+# every one of the 20 candidate k values, even though the result is
+# identical every time. Memory caching computes it ONCE per CV fold and
+# reuses that result for every k evaluated on that fold -- this does not
+# change the result in any way, it only removes redundant recomputation.
+pipe_cache = Memory(location=mkdtemp(), verbose=0)  # ADDED
+
 # Wrapper-method feature selection (Lecture 6, Method 3: backward elimination)
 from sklearn.feature_selection import SequentialFeatureSelector
 # Import functions for evaluating classification models
@@ -63,10 +74,12 @@ pipe_knn = Pipeline([
         direction="backward",
         scoring="balanced_accuracy",
         cv=cv_strategy,
-        n_jobs=-1
+        n_jobs=1    # CHANGED: was -1 -- outer GridSearchCV already
+                  # parallelizes across k values/folds; parallelizing here
+                  # too oversubscribes the CPU (more processes than cores)
     )),
     ("clf", KNeighborsClassifier())
-])
+], memory=pipe_cache)  # ADDED: cache feature_select's fit per fold (see note above)
 
 k_values = list(range(1, 21))
 
