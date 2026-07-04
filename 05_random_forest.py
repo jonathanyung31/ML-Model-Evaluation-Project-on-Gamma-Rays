@@ -375,3 +375,23 @@ A deeper outlier/high-leverage analysis comparing which specific test
 points all three models consistently misclassify is deferred to
 06_evaluation.py, where all three models' predictions are available
 simultaneously for comparison."""  # CHANGED: opening paragraph rewritten to stop contradicting Section 3+4b
+
+# =============================================================================
+# SECTION 11: SAVE RESULTS FOR 06_evaluation.py  # ADDED
+# =============================================================================
+
+os.makedirs(os.path.join("results", "model_outputs"), exist_ok=True)  # ADDED
+
+np.savez(  # ADDED
+    os.path.join("results", "model_outputs", "rf_results.npz"),
+    fpr=fpr,
+    tpr=tpr,
+    auroc=auroc,
+    sensitivity=sensitivity,
+    specificity=specificity,
+    selected_features=np.array(selected_features, dtype=object),
+    feature_importances=importances,        # ADDED — RF-specific, for the Step 6 discussion
+    feature_names=np.array(feature_names, dtype=object),  # ADDED
+)  # ADDED
+
+print("Results saved: results/model_outputs/rf_results.npz")  # ADDED

@@ -310,3 +310,21 @@ points can pull the decision boundary), since its boundary depends only
 on the support vectors — points near the margin. A deeper pass
 identifying which test points are misclassified with the largest margin
 violations is left for 06_evaluation.py if time allows."""
+
+# =============================================================================
+# SECTION 10: SAVE RESULTS FOR 06_evaluation.py  # ADDED
+# =============================================================================
+
+os.makedirs(os.path.join("results", "model_outputs"), exist_ok=True)  # ADDED
+
+np.savez(  # ADDED
+    os.path.join("results", "model_outputs", "svm_results.npz"),
+    fpr=fpr,
+    tpr=tpr,
+    auroc=auroc,
+    sensitivity=sensitivity,
+    specificity=specificity,
+    selected_features=np.array(selected_features, dtype=object),
+)  # ADDED
+
+print("Results saved: results/model_outputs/svm_results.npz")  # ADDED

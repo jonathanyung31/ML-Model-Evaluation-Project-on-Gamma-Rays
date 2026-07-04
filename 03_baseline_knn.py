@@ -212,3 +212,26 @@ print("\n--- Sensitivity at required FPR thresholds (per dataset documentation) 
 for target_fpr in required_fpr_thresholds:
     idx = np.argmin(np.abs(fpr - target_fpr))
     print(f"FPR ~{target_fpr} (closest available point: {fpr[idx]:.3f}): sensitivity = {tpr[idx]:.3f}")
+
+# =============================================================================
+# SECTION 8: SAVE RESULTS FOR 06_evaluation.py  # ADDED
+# =============================================================================
+"""06_evaluation.py runs as a separate process, so none of this script's
+in-memory variables (fpr, tpr, auroc, ...) exist by the time it runs.
+We save exactly what Project.md Step 6 needs: the ROC curve (for the
+overlay plot) and auROC/sensitivity-at-thresholds (for the comparison
+table)."""
+
+os.makedirs(os.path.join("results", "model_outputs"), exist_ok=True)  # ADDED
+
+np.savez(  # ADDED
+    os.path.join("results", "model_outputs", "knn_results.npz"),
+    fpr=fpr,
+    tpr=tpr,
+    auroc=auroc,
+    sensitivity=sensitivity,
+    specificity=specificity,
+    selected_features=np.array(selected_features, dtype=object),
+)  # ADDED
+
+print("Results saved: results/model_outputs/knn_results.npz")  # ADDED
