@@ -30,7 +30,7 @@ print(f"X_train: {X_train.shape}, X_test: {X_test.shape}")
 # SECTION 2: CHOOSE k VALUES TO TEST (HYPERPARAMETER TUNING)
 
 
-k_values = list(range(1, 20))
+k_values = list(range(1, 21))
 
 # prevent noise with stratification
 cv_strategy = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)

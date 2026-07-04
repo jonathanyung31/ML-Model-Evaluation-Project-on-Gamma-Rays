@@ -29,6 +29,7 @@ print(f"Shape before cleaning: {df.shape}")
 # with an in-memory copy throughout.
 df = df.copy()
 
+df = df.drop_duplicates(keep="first").reset_index(drop=True)
 
 # SECTION 2: MISSING VALUES (NO ACTION NEEDED) & CHECK FOR DUPLICATE ROWS (NO REMOVAL)
 

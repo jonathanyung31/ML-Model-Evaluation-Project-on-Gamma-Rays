@@ -42,8 +42,6 @@ df = df.copy()
 n_duplicates = df.duplicated().sum()
 print(f"Duplicate rows found: {n_duplicates}")
 
-df = df.drop_duplicates(keep="first").reset_index(drop=True)
-
 print(f"Rows after removing duplicates: {len(df)}")
 print("Updated class distribution:")
 print(df["class"].value_counts())

@@ -32,7 +32,7 @@ any decision-making, only for the final reported result.
 
 WHY THESE SPECIFIC VALUES?
 We try a spread from very small (k=1, most flexible, most overfitting
-risk) to larger (k=25, smoother, more underfitting risk), matching the
+risk) to larger (k=20, smoother, more underfitting risk), matching the
 overfitting-vs-underfitting tradeoff shown in Lecture 3b, Section 1-2."""
 
 """WHY CROSS-VALIDATION INSTEAD OF A SINGLE VALIDATION SPLIT?
