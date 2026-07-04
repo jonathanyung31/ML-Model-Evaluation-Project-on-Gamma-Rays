@@ -12,6 +12,7 @@ import os
 import matplotlib.pyplot as plt
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.pipeline import Pipeline
+from sklearn.model_selection import train_test_split
 from sklearn.model_selection import StratifiedKFold, GridSearchCV
 # Wrapper-method feature selection (Lecture 6 Quick Summary table:
 # "Backward elimination -- Start full, keep removing the worst feature";
@@ -77,6 +78,30 @@ print(f"X_train: {X_train.shape}, X_test: {X_test.shape}")
    the default and generally performs similarly to entropy in practice."""  # CHANGED: point 2's note about tuning added
 
 
+"""Lecture 10 ("Wrap Up"), Step 5 -- Shortlist Promising Models:
+"If your dataset is huge, you might sample a smaller portion for this
+step so training is fast. Just know that complex models (like Random
+Forests...) suffer more from having less data." Same pattern already
+used in 04_svm.py's X_train_sub. We use 6000 rows here instead of SVM's
+4000, precisely because of that RF-specific caveat -- RF needs a bit more
+data than SVM/kNN to behave representatively.
+
+This subsample is used ONLY for the nested search below (Section 3+4b),
+which is what was taking forever: it retrains the feature-selection probe
+and the classifier repeatedly across every fold x every grid combination.
+The FINAL model is explicitly refit on the FULL training set afterward
+(Section 5), per Lecture 10 Step 6: "Use as much data as you can" for the
+fine-tuned final model -- so nothing about the deployed model's quality
+changes, only the search that finds its hyperparameters gets faster."""
+
+X_train_sub, _, y_train_sub, _ = train_test_split(
+    X_train, y_train,
+    train_size=6000,
+    stratify=y_train,
+    random_state=42
+)
+
+print(f"\nSubsample for nested search: {X_train_sub.shape[0]} rows")
 
 # =============================================================================
 # SECTION 3+4b: HYPERPARAMETER TUNING + FEATURE SELECTION — NESTED TOGETHER  # CHANGED: sections merged/renamed
@@ -125,7 +150,7 @@ grid_search = GridSearchCV(  # replaces the old manual double for-loop + cross_v
     scoring="balanced_accuracy",
     n_jobs=-1
 )
-grid_search.fit(X_train, y_train)
+grid_search.fit(X_train_sub, y_train_sub)  # CHANGED: was grid_search.fit(X_train, y_train)
 
 best_params = {  # was populated inside the manual for-loop via `if mean_score > best_score:` comparisons
     "n_estimators": grid_search.best_params_["clf__n_estimators"],
@@ -197,9 +222,21 @@ print("Plot saved: 11_rf_hyperparameter_search.png")
 # SECTION 5: TRAIN FINAL MODEL ON FULL TRAINING SET, EVALUATE ON TEST SET
 # =============================================================================
 
-final_rf = best_pipeline.named_steps["clf"]  # CHANGED: was `RandomForestClassifier(n_estimators=..., max_depth=..., max_features="sqrt", ...)` freshly constructed + `.fit(X_train, y_train)`
+# ADDED: refit explicitly on the FULL training set (not just the 6000-row
+# search subsample), per Lecture 10 Step 6: "Use as much data as you can
+# at this stage." Same pattern as 04_svm.py's final_svm refit.
+final_rf = RandomForestClassifier(  # CHANGED: was `final_rf = best_pipeline.named_steps["clf"]`
+    n_estimators=best_params["n_estimators"],
+    max_depth=best_params["max_depth"],
+    max_features=best_params["max_features"],
+    random_state=42,
+    n_jobs=-1   # ADDED: fine to parallelize now -- this is a single fit, not nested inside a search
+)
+
 X_train = X_train[selected_features]   # keep for feature_importances_ / plotting below  # ADDED
-X_test = X_test[selected_features]  # ADDED
+X_test = X_test[selected_features]
+
+final_rf.fit(X_train, y_train)  # ADDED: explicit fit on the FULL 15216-row training set
 
 y_pred = final_rf.predict(X_test)
 y_pred_proba = final_rf.predict_proba(X_test)[:, list(final_rf.classes_).index("g")]

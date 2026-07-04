@@ -99,18 +99,6 @@ plt.savefig(os.path.join("results", "plots", "01_class_distribution.png"), dpi=1
 plt.show()      # Display the plot on the screen
 print("Plot saved: 01_class_distribution.png")
 
-# SECTION 2: MISSING VALUES (NO ACTION NEEDED) & CHECK FOR DUPLICATE ROWS (NO REMOVAL)
-
-print(f"\n--- Missing values check (carried over from 01_eda.py) ---")
-print("Confirmed: 0 missing values, 0 hidden missing-value placeholders.")
-print("Decision: no filling in or row deletion needed.")
-
-n_duplicates = df.duplicated().sum()
-print(f"\n--- Duplicate rows (kept, not removed) ---")
-print(f"Number of duplicate rows: {n_duplicates}")
-print("Decision: keeping all rows - no evidence these are data errors yet")
-
-
 # SECTION 3: TRAIN / TEST SPLIT
 
 X = df[[col for col in df.columns if col != "class"]]
