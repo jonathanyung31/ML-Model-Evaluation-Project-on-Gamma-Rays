@@ -96,51 +96,51 @@ sqrt(p) given only as the typical default, not a fixed constant."""  # CHANGED: 
 cv_strategy = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
 pipe_rf = Pipeline([
-    ("feature_select", SequentialFeatureSelector(  # ADDED
+    ("feature_select", SequentialFeatureSelector(
         RandomForestClassifier(n_estimators=200, max_features="sqrt", random_state=42, n_jobs=1),  # fixed probe  # ADDED
-        n_features_to_select="auto",  # ADDED
-        tol=0.001,  # ADDED
-        direction="backward",  # ADDED
-        scoring="balanced_accuracy",  # ADDED
-        cv=cv_strategy,  # ADDED
+        n_features_to_select="auto",
+        tol=0.001,
+        direction="backward",
+        scoring="balanced_accuracy",
+        cv=cv_strategy,
         n_jobs=1 # CHANGED: was -1 -- outer GridSearchCV already parallelizes
                   # across grid points/folds; parallelizing here AND inside the
                   # probe RF too oversubscribes the CPU (was 4 nested levels of
                   # parallelism: GridSearchCV, SequentialFeatureSelector, the
                   # probe RF, and the final clf RF, all fighting for the same cores)
     )),
-    ("clf", RandomForestClassifier(random_state=42, n_jobs=1))  # ADDED
-], memory=pipe_cache)  # ADDED: cache feature_select's fit per fold (see note above)
+    ("clf", RandomForestClassifier(random_state=42, n_jobs=1))
+], memory=pipe_cache)  # cache feature_select's fit per fold (see note above)
 
-param_grid = {  # CHANGED: was two separate lists `n_estimators_values` / `max_depth_values` used in a manual double for-loop
-    "clf__n_estimators": [50, 100, 200, 300],  # CHANGED: was `n_estimators_values = [50, 100, 200, 300]`
-    "clf__max_depth": [None, 5, 10, 20],  # CHANGED: was `max_depth_values = [None, 5, 10, 20]`
-    "clf__max_features": ["sqrt", "log2", None],  # ADDED: max_features is now tuned instead of fixed
+param_grid = {  # was two separate lists `n_estimators_values` / `max_depth_values` used in a manual double for-loop
+    "clf__n_estimators": [50, 100, 200, 300],  # was `n_estimators_values = [50, 100, 200, 300]`
+    "clf__max_depth": [None, 5, 10, 20],  # was `max_depth_values = [None, 5, 10, 20]`
+    "clf__max_features": ["sqrt", "log2", None],  # max_features is now tuned instead of fixed
 }
 
-grid_search = GridSearchCV(  # ADDED — replaces the old manual double for-loop + cross_val_score entirely
-    pipe_rf,  # ADDED
-    param_grid=param_grid,  # ADDED
-    cv=cv_strategy,  # ADDED
-    scoring="balanced_accuracy",  # ADDED
-    n_jobs=-1  # ADDED
-)  # ADDED
-grid_search.fit(X_train, y_train)  # ADDED
+grid_search = GridSearchCV(  # replaces the old manual double for-loop + cross_val_score entirely
+    pipe_rf,
+    param_grid=param_grid,
+    cv=cv_strategy,
+    scoring="balanced_accuracy",
+    n_jobs=-1
+)
+grid_search.fit(X_train, y_train)
 
-best_params = {  # CHANGED: was populated inside the manual for-loop via `if mean_score > best_score:` comparisons
-    "n_estimators": grid_search.best_params_["clf__n_estimators"],  # CHANGED
-    "max_depth": grid_search.best_params_["clf__max_depth"],  # CHANGED
-    "max_features": grid_search.best_params_["clf__max_features"],  # ADDED
+best_params = {  # was populated inside the manual for-loop via `if mean_score > best_score:` comparisons
+    "n_estimators": grid_search.best_params_["clf__n_estimators"],
+    "max_depth": grid_search.best_params_["clf__max_depth"],
+    "max_features": grid_search.best_params_["clf__max_features"],
 }
 
 print(f"\nBest parameters: {best_params}")
 print(f"Best CV balanced accuracy: {grid_search.best_score_:.3f}")  # CHANGED: was `best_score` (a plain float tracked manually)
 
-best_pipeline = grid_search.best_estimator_  # ADDED
-selected_mask = best_pipeline.named_steps["feature_select"].get_support()  # ADDED
-selected_features = X_train.columns[selected_mask].tolist()  # CHANGED: was `X_train.columns[sfs.get_support()]`, run in a separate later step
-dropped_features = X_train.columns[~selected_mask].tolist()  # CHANGED: was `X_train.columns[~sfs.get_support()]`
-feature_names = selected_features  # CHANGED: was set from the un-selected `X_train.columns.tolist()` back in Section 1
+best_pipeline = grid_search.best_estimator_
+selected_mask = best_pipeline.named_steps["feature_select"].get_support()
+selected_features = X_train.columns[selected_mask].tolist()  # was `X_train.columns[sfs.get_support()]`, run in a separate later step
+dropped_features = X_train.columns[~selected_mask].tolist()  # was `X_train.columns[~sfs.get_support()]`
+feature_names = selected_features  # was set from the un-selected `X_train.columns.tolist()` back in Section 1
 
 print(f"\n--- Random Forest feature selection (wrapper: backward elimination) ---")
 print(f"Selected features ({len(selected_features)}): {selected_features}")
@@ -154,10 +154,10 @@ print(f"Dropped features ({len(dropped_features)}): {dropped_features}")
 results_df = pd.DataFrame(grid_search.cv_results_)  # CHANGED: was built manually from the `results` list appended inside the for-loop
 slice_df = results_df[results_df["param_clf__max_features"] == best_params["max_features"]]  # ADDED — needed since the grid is now 3D (n_estimators x max_depth x max_features)
 
-pivot = slice_df.pivot(  # CHANGED: was `results_df.pivot(...)`, now pivots the sliced 2D subset
+pivot = slice_df.pivot(  # was `results_df.pivot(...)`, now pivots the sliced 2D subset
     index="param_clf__max_depth", 
     columns="param_clf__n_estimators", 
-    values="mean_test_score"  # CHANGED: was `index="max_depth", columns="n_estimators", values="mean_balanced_acc"`
+    values="mean_test_score"  # was `index="max_depth", columns="n_estimators", values="mean_balanced_acc"`
 )
 
 fig, ax = plt.subplots(figsize=(8, 5))
