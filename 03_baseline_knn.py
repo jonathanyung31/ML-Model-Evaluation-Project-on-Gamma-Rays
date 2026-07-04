@@ -34,6 +34,11 @@ from sklearn.metrics import (
 from sklearn.pipeline import Pipeline
 
 
+plt.style.use("dark_background")
+plt.rcParams["grid.color"] = "#3a3a3a"
+plt.rcParams["grid.alpha"] = 0.6
+
+
 X_train = pd.read_csv(os.path.join("data", "processed", "X_train.csv"))
 X_test = pd.read_csv(os.path.join("data", "processed", "X_test.csv"))
 y_train = pd.read_csv(os.path.join("data", "processed", "y_train.csv")).squeeze()
@@ -190,7 +195,7 @@ fpr, tpr, thresholds = roc_curve((y_test == "g").astype(int), y_pred_proba)
 
 fig, ax = plt.subplots(figsize=(6, 6))
 
-ax.plot(fpr, tpr, color="steelblue", label=f"kNN (auROC = {auroc:.3f})")
+ax.plot(fpr, tpr, color="deepskyblue", label=f"kNN (auROC = {auroc:.3f})")
 
 ax.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Random guessing")
 

@@ -5,7 +5,10 @@ import seaborn as sns        # seaborn: for nicer statistical plots
 import os                    # os: for working with file paths and folders
 
 # This line makes all our plots look slightly cleaner by default
-sns.set_theme(style="whitegrid")
+sns.set_theme(style="darkgrid")
+plt.style.use("dark_background")
+plt.rcParams["grid.color"] = "#3a3a3a"   # dark grey grid lines
+plt.rcParams["grid.alpha"] = 0.6         # optional: slightly transparent
 
 column_names = [
     "fLength",   
@@ -109,7 +112,7 @@ fig, ax = plt.subplots(figsize=(6, 4))
 class_counts.plot(
     kind="bar",
     ax=ax,
-    color=["deepskyblue", "blueviolet"],
+    color=["deepskyblue", "magenta"],
     edgecolor="black"
 )
 
@@ -182,7 +185,7 @@ for i, col in enumerate(feature_cols):      # go through everything that is not 
         df[df["class"] == "h"][col],
         bins=50,
         alpha=0.6,
-        color="blueviolet",
+        color="magenta",
         label="hadron (h)",
         density=True
     )
@@ -279,7 +282,7 @@ axes = axes.flatten()
 for i, (x_col, y_col) in enumerate(pairs_to_plot):
     ax = axes[i]
 
-    for cls, color, label in [("g", "deepskyblue", "gamma"), ("h", "blueviolet", "hadron")]:
+    for cls, color, label in [("g", "deepskyblue", "gamma"), ("h", "magenta", "hadron")]:
         subset = sample[sample["class"] == cls]
         ax.scatter(
             subset[x_col],

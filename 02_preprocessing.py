@@ -13,7 +13,10 @@ import os
 import seaborn as sns        # seaborn: for nicer statistical plots
 from sklearn.model_selection import train_test_split
 
-sns.set_theme(style="whitegrid")
+sns.set_theme(style="darkgrid")
+plt.style.use("dark_background")
+plt.rcParams["grid.color"] = "#3a3a3a"   # dark grey grid lines
+plt.rcParams["grid.alpha"] = 0.6         # optional: slightly transparent
 
 column_names = [
     "fLength", "fWidth", "fSize", "fConc", "fConc1",
@@ -67,7 +70,7 @@ fig, ax = plt.subplots(figsize=(6, 4))
 class_counts.plot(
     kind="bar",
     ax=ax,
-    color=["deepskyblue", "blueviolet"],
+    color=["deepskyblue", "magenta"],
     edgecolor="black"
 )
 
