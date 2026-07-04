@@ -45,6 +45,8 @@ df = df.copy()
 n_duplicates = df.duplicated().sum()
 print(f"Duplicate rows found: {n_duplicates}")
 
+df = df.drop_duplicates(keep="first").reset_index(drop=True)  # ADDED
+print(f"Rows after removing duplicates: {len(df)}")  # ADDED
 
 # SECTION 3: BASIC STRUCTURE
 
