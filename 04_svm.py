@@ -201,6 +201,57 @@ X_train = X_train[selected_features]
 X_test = X_test[selected_features]
 # REMOVED: X_train_sub = X_train_sub[selected_features]   <- X_train_sub isn't reused after this point anymore
 
+# =============================================================================
+# SECTION 3b: LINEAR VS RBF DECISION BOUNDARY (VISUAL COMPARISON FOR SLIDES)
+# =============================================================================
+"""Purely for visualization -- feeds nothing into model selection or the
+final results. Real feature space is 10D, so we project the SAME
+subsample used for hyperparameter search (X_train_sub) down to 2 PCA
+components just for this plot, then refit linear and RBF (using the
+ACTUAL tuned best_C/best_gamma) on that 2D projection to draw both
+decision regions side by side."""
+
+from sklearn.decomposition import PCA
+
+pca_2d = PCA(n_components=2, random_state=42)
+X_train_sub_2d = pca_2d.fit_transform(X_train_sub)
+
+viz_linear_svm = SVC(kernel="linear", C=1, random_state=42).fit(
+    X_train_sub_2d, y_train_sub)
+viz_rbf_svm = SVC(kernel="rbf", C=best_C, gamma=best_gamma, random_state=42).fit(
+    X_train_sub_2d, y_train_sub)
+
+x_min, x_max = X_train_sub_2d[:, 0].min() - 1, X_train_sub_2d[:, 0].max() + 1
+y_min, y_max = X_train_sub_2d[:, 1].min() - 1, X_train_sub_2d[:, 1].max() + 1
+xx, yy = np.meshgrid(np.linspace(x_min, x_max, 300),
+                      np.linspace(y_min, y_max, 300))
+grid_points = np.c_[xx.ravel(), yy.ravel()]
+
+y_train_sub_numeric = (y_train_sub == "g").astype(int)  # for coloring only
+
+fig, axes = plt.subplots(1, 2, figsize=(13, 5.5))
+
+for ax, model, title in zip(
+    axes,
+    [viz_linear_svm, viz_rbf_svm],
+    ["Linear Kernel (C=1)",
+     f"RBF Kernel (C={best_C:.3g}, gamma={best_gamma:.3g})"]
+):
+    Z = (model.predict(grid_points) == "g").astype(int).reshape(xx.shape)
+    ax.contourf(xx, yy, Z, alpha=0.3, cmap="coolwarm")
+    ax.scatter(X_train_sub_2d[:, 0], X_train_sub_2d[:, 1],
+               c=y_train_sub_numeric, cmap="coolwarm",
+               edgecolors="k", s=15, linewidths=0.3)
+    ax.set_title(title, fontsize=12)
+    ax.set_xlabel("PC1")
+    ax.set_ylabel("PC2")
+
+fig.suptitle("Linear vs. RBF SVM Decision Boundary (2D PCA projection)", fontsize=14)
+plt.tight_layout()
+plt.savefig(os.path.join("results", "plots", "08b_svm_linear_vs_rbf_boundary.png"), dpi=150)
+plt.show()
+print("Plot saved: 08b_svm_linear_vs_rbf_boundary.png")
+
 
 # =============================================================================
 # SECTION 4: VISUALIZE THE GRID SEARCH RESULTS
