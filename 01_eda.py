@@ -350,7 +350,7 @@ ax.legend()
 plt.tight_layout()
 plt.savefig(os.path.join("results", "plots", "04_outlier_boxplots.png"), dpi=150, bbox_inches="tight")
 plt.show()
-print("Plot saved: 09_outlier_boxplots.png")
+print("Plot saved: 04_outlier_boxplots.png")
 
 extreme_counts = (z_scored.abs() > 3).sum()
 print("\n--- Outlier check: values with |z-score| > 3, per feature ---")
