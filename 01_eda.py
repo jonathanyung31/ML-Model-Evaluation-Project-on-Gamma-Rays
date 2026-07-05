@@ -84,7 +84,11 @@ print((df == "NA").sum())
 print((df == "null").sum())
 print((df == "").sum())
 
-# --- Slide-ready summary table: only the features you'll actually discuss ---
+"""# --- Slide-ready summary table: only the features you'll actually discuss ---
+#################################################################################
+#################################################################################
+#################################################################################
+# CAN BE USED IN PRESENTATION"""
 key_features = ["fAlpha", "fSize", "fLength", "fWidth"]
 summary_table = pd.concat([
     df[df["class"] == "g"][key_features].mean().rename("gamma_mean"),
@@ -99,8 +103,8 @@ print(summary_table)
 # SECTION 4: CLASS DISTRIBUTION
 
 print("\n--- Class distribution ---")
-class_counts = df["class"].value_counts()
-class_proportions = df["class"].value_counts(normalize=True) * 100     # in precentages
+class_counts = df["class"].value_counts()   # how many rows belong to each class
+class_proportions = df["class"].value_counts(normalize=True) * 100     # now in precentages
 
 print("Counts:")
 print(class_counts)
@@ -127,7 +131,7 @@ ax.set_title("Class Distribution: Gamma vs Hadron", fontsize=13)
 ax.set_xticklabels(["g (gamma)", "h (hadron)"], rotation=0)
 
 ax.set_xlabel("Class (g = gamma/signal, h = hadron/background)", fontsize=12, labelpad=12)
-ax.set_ylabel("Number of Samples", fontsize=12, labelpad=12)
+ax.set_ylabel("Number of Observations", fontsize=12, labelpad=12)
 
 # Add the count and percentage as text on top of each bar
 for i, (count, prop) in enumerate(zip(class_counts, class_proportions)):
