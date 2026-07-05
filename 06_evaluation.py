@@ -141,11 +141,16 @@ print("models and is the recommended choice for this task.")
 # =============================================================================
 # SECTION 7: CROSS-MODEL CHECK -- WHO DO ALL THREE MODELS GET WRONG?
 # =============================================================================
-"""X_train.csv/X_test.csv are already normalized (z-scored on the
-training set) by 02_preprocessing.py -- so no new statistic is needed
-to check whether a point looks "extreme": we just count how many of
-its features already exceed the same |z| > 3 rule of thumb used in
-01_eda.py."""
+"""FIXED: X_train.csv/X_test.csv are now RAW/unnormalized -- normalization
+was moved out of 02_preprocessing.py and into each model's own Pipeline
+(the Mistake-1 fix). So checking abs(raw_value) > 3 here would be
+meaningless -- features like fLength routinely exceed 3 in their raw
+units, so nearly every row would falsely count as "extreme".
+
+Fix: compute the z-score fresh, right here, using ONLY the training
+set's mean/std -- the same rule applied consistently everywhere else in
+this project (never use test-set statistics for anything, including
+diagnostics like this one)."""  # FIXED
 
 knn_wrong = set(knn["misclassified_indices"].tolist())
 svm_wrong = set(svm["misclassified_indices"].tolist())
@@ -158,13 +163,21 @@ print(f"kNN: {len(knn_wrong)} | SVM: {len(svm_wrong)} | RF: {len(rf_wrong)} misc
 print(f"Misclassified by ALL THREE: {len(all_three_wrong)}")
 
 if len(all_three_wrong) > 0:
+    X_train_full = pd.read_csv(os.path.join("data", "processed", "X_train.csv"))  # ADDED
     X_test_full = pd.read_csv(os.path.join("data", "processed", "X_test.csv"))
     y_test_full = pd.read_csv(os.path.join("data", "processed", "y_test.csv")).squeeze()
+
+    # ADDED: fresh z-score using TRAINING-set statistics only, applied to
+    # the test rows being inspected -- mirrors exactly what each model's
+    # own Pipeline does internally, just recomputed here for this diagnostic.
+    mean_train = X_train_full.mean()  # ADDED
+    std_train = X_train_full.std()  # ADDED
+    X_test_zscored = (X_test_full - mean_train) / std_train  # ADDED
 
     common_idx = sorted(all_three_wrong)
     common_points = X_test_full.loc[common_idx].copy()
     common_points["true_class"] = y_test_full.loc[common_idx].values
-    common_points["n_extreme_features"] = (X_test_full.loc[common_idx].abs() > 3).sum(axis=1)
+    common_points["n_extreme_features"] = (X_test_zscored.loc[common_idx].abs() > 3).sum(axis=1)  # CHANGED: was X_test_full.loc[common_idx].abs() > 3
 
     print(f"\nUniversally misclassified points, ranked by how many features are extreme:")
     print(common_points.sort_values("n_extreme_features", ascending=False).head(10))
