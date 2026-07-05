@@ -219,6 +219,32 @@ for target_fpr in required_fpr_thresholds:
     print(f"FPR ~{target_fpr} (closest available point: {fpr[idx]:.3f}): sensitivity = {tpr[idx]:.3f}")
 
 # =============================================================================
+# SECTION 7b: MISCLASSIFIED POINTS RANKED BY CONFIDENCE (Lecture 7)
+# =============================================================================
+"""Lecture 7: "look at a sorted list of misclassified samples -- the
+ones farthest from the boundary are your biggest problem cases."
+kNN has no explicit boundary, so we use predict_proba() (the fraction
+of the k neighbors that voted for the predicted class) as its
+confidence measure. kNN is also the model most sensitive to
+high-leverage points among the three, since distance is all it uses --
+an unusual point can also corrupt its neighbors' predictions by being
+their nearest neighbor."""
+
+knn_confidence = final_knn.predict_proba(X_test).max(axis=1)
+misclassified_mask = (y_pred != y_test.values)
+
+knn_confidence_report = pd.DataFrame({
+    "true_class": y_test.values[misclassified_mask],
+    "predicted_class": y_pred[misclassified_mask],
+    "model_confidence": knn_confidence[misclassified_mask],
+}, index=X_test.index[misclassified_mask]).sort_values(
+    "model_confidence", ascending=False)
+
+print(f"\n--- {misclassified_mask.sum()} misclassified test points out of {len(y_test)} ---")
+print("Top 5 most confidently WRONG predictions:")
+print(knn_confidence_report.head(5))
+
+# =============================================================================
 # SECTION 8: SAVE RESULTS FOR 06_evaluation.py  # ADDED
 # =============================================================================
 """06_evaluation.py runs as a separate process, so none of this script's
@@ -237,6 +263,7 @@ np.savez(  # ADDED
     sensitivity=sensitivity,
     specificity=specificity,
     selected_features=np.array(selected_features, dtype=object),
+    misclassified_indices=knn_confidence_report.index.to_numpy(),  # add this line
 )  # ADDED
 
 print("Results saved: results/model_outputs/knn_results.npz")  # ADDED

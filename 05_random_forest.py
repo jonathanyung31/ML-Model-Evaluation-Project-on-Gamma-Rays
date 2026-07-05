@@ -377,6 +377,27 @@ points all three models consistently misclassify is deferred to
 simultaneously for comparison."""  # CHANGED: opening paragraph rewritten to stop contradicting Section 3+4b
 
 # =============================================================================
+# SECTION 10b: MISCLASSIFIED POINTS RANKED BY CONFIDENCE (Lecture 7)
+# =============================================================================
+"""RF has no geometric margin, so predict_proba() (fraction of trees
+voting for the predicted class) is the closest analogue to Lecture 7's
+"distance to boundary" guidance."""
+
+rf_confidence = final_rf.predict_proba(X_test).max(axis=1)
+misclassified_mask = (y_pred != y_test.values)
+
+rf_confidence_report = pd.DataFrame({
+    "true_class": y_test.values[misclassified_mask],
+    "predicted_class": y_pred[misclassified_mask],
+    "model_confidence": rf_confidence[misclassified_mask],
+}, index=X_test.index[misclassified_mask]).sort_values(
+    "model_confidence", ascending=False)
+
+print(f"\n--- {misclassified_mask.sum()} misclassified test points out of {len(y_test)} ---")
+print("Top 5 most confidently WRONG predictions:")
+print(rf_confidence_report.head(5))
+
+# =============================================================================
 # SECTION 11: SAVE RESULTS FOR 06_evaluation.py  # ADDED
 # =============================================================================
 
@@ -391,7 +412,8 @@ np.savez(  # ADDED
     specificity=specificity,
     selected_features=np.array(selected_features, dtype=object),
     feature_importances=importances,        # ADDED — RF-specific, for the Step 6 discussion
-    feature_names=np.array(feature_names, dtype=object),  # ADDED
+    feature_names=np.array(feature_names, dtype=object),
+    misclassified_indices=rf_confidence_report.index.to_numpy(),  # add this line
 )  # ADDED
 
 print("Results saved: results/model_outputs/rf_results.npz")  # ADDED

@@ -51,6 +51,17 @@ print("features, an exact match across all 10 features is a data-pipeline")
 print("artifact, not a genuinely repeated physical event (same reasoning")
 print("as 01_eda.py, kept consistent across both scripts).")
 
+# =============================================================================
+# OUTLIER DECISION (Lecture 7)
+# =============================================================================
+"""01_eda.py flagged a small percentage of rows with an extreme
+(|z-score| > 3) feature value. Per Lecture 7: without a documented,
+verifiable reason the values are wrong (Step 1/2), and with no
+physically impossible values found, they are kept -- 'my results get
+better without it' is not a valid reason to remove a point.
+Why: just documents the decision at the stage where you'd actually be 
+tempted to act on it — no new computation needed here at all.
+"""
 
 # CLASS DISTRIBUTION
 

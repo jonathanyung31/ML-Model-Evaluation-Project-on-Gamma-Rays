@@ -137,3 +137,36 @@ best_auroc = comparison_table["auROC"].max()
 print(f"\n--- Winner ---")
 print(f"{best_model} achieves the highest auROC ({best_auroc:.3f}) among the three")
 print("models and is the recommended choice for this task.")
+
+# =============================================================================
+# SECTION 7: CROSS-MODEL CHECK -- WHO DO ALL THREE MODELS GET WRONG?
+# =============================================================================
+"""X_train.csv/X_test.csv are already normalized (z-scored on the
+training set) by 02_preprocessing.py -- so no new statistic is needed
+to check whether a point looks "extreme": we just count how many of
+its features already exceed the same |z| > 3 rule of thumb used in
+01_eda.py."""
+
+knn_wrong = set(knn["misclassified_indices"].tolist())
+svm_wrong = set(svm["misclassified_indices"].tolist())
+rf_wrong = set(rf["misclassified_indices"].tolist())
+
+all_three_wrong = knn_wrong & svm_wrong & rf_wrong
+
+print("\n--- Cross-model check ---")
+print(f"kNN: {len(knn_wrong)} | SVM: {len(svm_wrong)} | RF: {len(rf_wrong)} misclassified")
+print(f"Misclassified by ALL THREE: {len(all_three_wrong)}")
+
+if len(all_three_wrong) > 0:
+    X_test_full = pd.read_csv(os.path.join("data", "processed", "X_test.csv"))
+    y_test_full = pd.read_csv(os.path.join("data", "processed", "y_test.csv")).squeeze()
+
+    common_idx = sorted(all_three_wrong)
+    common_points = X_test_full.loc[common_idx].copy()
+    common_points["true_class"] = y_test_full.loc[common_idx].values
+    common_points["n_extreme_features"] = (X_test_full.loc[common_idx].abs() > 3).sum(axis=1)
+
+    print(f"\nUniversally misclassified points, ranked by how many features are extreme:")
+    print(common_points.sort_values("n_extreme_features", ascending=False).head(10))
+else:
+    print("No point was misclassified by all three models -- errors are largely independent.")

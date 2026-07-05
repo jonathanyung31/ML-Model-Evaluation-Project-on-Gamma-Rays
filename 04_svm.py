@@ -419,6 +419,38 @@ identifying which test points are misclassified with the largest margin
 violations is left for 06_evaluation.py if time allows."""
 
 # =============================================================================
+# SECTION 10b: HIGH LEVERAGE (SUPPORT VECTORS) + MISCLASSIFICATION RANKING
+# =============================================================================
+"""Lecture 9: SVM's decision boundary depends ONLY on its support
+vectors. That makes them exactly the "high leverage" points for this
+model -- by definition, removing any non-support-vector point would
+not change the boundary at all. No new statistic needed; this comes
+straight from how SVM already works."""
+
+n_support = final_svm.n_support_.sum()
+pct_support = n_support / len(X_train) * 100
+print(f"\n--- High leverage points for SVM: support vectors ---")
+print(f"{n_support} of {len(X_train)} training points ({pct_support:.1f}%) "
+      f"are support vectors -- the points the boundary actually depends on.")
+
+"""Lecture 7: rank misclassified points by distance to the boundary.
+decision_function() gives that signed distance directly for SVM."""
+
+decision_scores = final_svm.decision_function(X_test)
+misclassified_mask = (y_pred != y_test.values)
+
+svm_margin_report = pd.DataFrame({
+    "true_class": y_test.values[misclassified_mask],
+    "predicted_class": y_pred[misclassified_mask],
+    "margin_violation": np.abs(decision_scores[misclassified_mask]),
+}, index=X_test.index[misclassified_mask]).sort_values(
+    "margin_violation", ascending=False)
+
+print(f"\n--- {misclassified_mask.sum()} misclassified test points out of {len(y_test)} ---")
+print("Top 5 worst margin violations (most confidently WRONG):")
+print(svm_margin_report.head(5))
+
+# =============================================================================
 # SECTION 10: SAVE RESULTS FOR 06_evaluation.py  # ADDED
 # =============================================================================
 
@@ -432,6 +464,7 @@ np.savez(  # ADDED
     sensitivity=sensitivity,
     specificity=specificity,
     selected_features=np.array(selected_features, dtype=object),
+    misclassified_indices=svm_margin_report.index.to_numpy(),  # add this line
 )  # ADDED
 
 print("Results saved: results/model_outputs/svm_results.npz")  # ADDED
