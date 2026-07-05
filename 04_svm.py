@@ -222,9 +222,22 @@ X_test = X_test[selected_features]
 # ADDED: scale the FINAL train/test sets too -- fit on X_train only,
 # applied to X_test, mirroring exactly what 02_preprocessing.py used to
 # do globally, just now scoped correctly to this final, full-data fit.
-final_scaler = StandardScaler()  # ADDED
-X_train = final_scaler.fit_transform(X_train)  # CHANGED: was left as a DataFrame, unscaled
-X_test = final_scaler.transform(X_test)  # ADDED
+final_scaler = StandardScaler()
+
+# FIXED: wrap the scaled numpy arrays back into DataFrames with the
+# original index/columns preserved -- StandardScaler.transform() returns
+# a plain ndarray, which drops .index and broke the misclassified-points
+# analysis later in this script (X_test.index[...] below).
+X_train = pd.DataFrame(  # FIXED: was `X_train = final_scaler.fit_transform(X_train)`
+    final_scaler.fit_transform(X_train),
+    columns=X_train.columns,
+    index=X_train.index
+)
+X_test = pd.DataFrame(  # FIXED: was `X_test = final_scaler.transform(X_test)`
+    final_scaler.transform(X_test),
+    columns=X_test.columns,
+    index=X_test.index
+)
 # REMOVED: X_train_sub = X_train_sub[selected_features]   <- X_train_sub isn't reused after this point anymore
 
 # =============================================================================
