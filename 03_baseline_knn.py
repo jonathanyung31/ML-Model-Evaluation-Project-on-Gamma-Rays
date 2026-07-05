@@ -26,6 +26,7 @@ pipe_cache = Memory(location=mkdtemp(), verbose=0)  # ADDED
 
 # Wrapper-method feature selection (Lecture 6, Method 3: backward elimination)
 from sklearn.feature_selection import SequentialFeatureSelector
+from sklearn.preprocessing import StandardScaler
 # Import functions for evaluating classification models
 from sklearn.metrics import (
     confusion_matrix, roc_curve, roc_auc_score,
@@ -72,6 +73,7 @@ dilute the true signal and can trigger the curse of dimensionality
 (Lecture 4 Section 23, Lecture 5b ISLR 4.8)."""
 
 pipe_knn = Pipeline([
+    ("scaler", StandardScaler()),  # ADDED: refit per fold now, fixes Mistake 1 at the inner-CV level
     ("feature_select", SequentialFeatureSelector(
         KNeighborsClassifier(n_neighbors=15),
         n_features_to_select="auto",

@@ -136,44 +136,36 @@ print("\nClass ratio in test set:")
 print(y_test.value_counts(normalize=True).round(3))
 
 
-# SECTION 4: NORMALIZE FEATURES
+# =============================================================================
+# SECTION 4: NORMALIZATION -- REMOVED FROM HERE  # CHANGED
+# =============================================================================
+"""Lecture 7: "[Mistake 1] applies inside each cross validation fold too."
+Normalizing once here, on the full 15,216-row X_train, means every inner
+CV fold used later for feature selection and hyperparameter tuning (in
+03/04/05) would have its held-out portion already reflected in the
+mean/std used to normalize it -- a mild version of the exact leak the
+lecture warns about.
+
+Fix: don't normalize here at all. Save the RAW (unscaled) split, and let
+each model script's own Pipeline include a StandardScaler as its first
+step, so normalization gets refit independently on each fold's training
+partition, alongside feature selection."""  # ADDED
 
 
-mean_train = X_train.mean()
-std_train = X_train.std()
-
-X_train_norm = (X_train - mean_train) / std_train
-X_test_norm = (X_test - mean_train) / std_train
-
-
-
-print(f"\n--- Normalization ---")
-print("Training set mean after normalization:")
-print(X_train_norm.mean().round(3))
-
-print("\nTraining set std after normalization:")
-print(X_train_norm.std().round(3))
-
-print("\nTest set mean after normalization:")
-print(X_test_norm.mean().round(3))
-
-print("\nTest set std after normalization (will NOT be exactly 1 — this is expected):")
-print(X_test_norm.std().round(3))
-
-
-
-
-# SECTION 5: SAVE THE PREPARED DATA
+# =============================================================================
+# SECTION 5: SAVE THE PREPARED (UNNORMALIZED) DATA
+# =============================================================================
 
 
 # create folder if it doesn't already exist
 os.makedirs(os.path.join("data", "processed"), exist_ok=True)   
 
-# Save the normalized training features to a CSV file
-X_train_norm.to_csv(os.path.join("data", "processed", "X_train.csv"), index=False)
+# Save the RAW (unnormalized) training features -- normalization now  # CHANGED
+# happens inside each model's Pipeline, not here  # CHANGED
+X_train.to_csv(os.path.join("data", "processed", "X_train.csv"), index=False)  # CHANGED: was X_train_norm
 
-# Save the normalized test features to a CSV file
-X_test_norm.to_csv(os.path.join("data", "processed", "X_test.csv"), index=False)
+# Save the RAW (unnormalized) test features  # CHANGED
+X_test.to_csv(os.path.join("data", "processed", "X_test.csv"), index=False)  # CHANGED: was X_test_norm
 
 # Save the training labels to a CSV file
 y_train.to_csv(os.path.join("data", "processed", "y_train.csv"), index=False)
@@ -183,4 +175,5 @@ y_test.to_csv(os.path.join("data", "processed", "y_test.csv"), index=False)
 
 print(f"\nProcessed data saved to: {os.path.join('data', 'processed')}")
 print("Files: X_train.csv, X_test.csv, y_train.csv, y_test.csv")
+print("Note: features are UNNORMALIZED -- each model script normalizes internally, per fold.")  # ADDED
 

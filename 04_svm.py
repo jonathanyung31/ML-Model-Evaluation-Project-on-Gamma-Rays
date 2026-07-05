@@ -16,6 +16,7 @@ from sklearn.pipeline import Pipeline
 # Wrapper-method feature selection (Lecture 6 Quick Summary table:
 # "Backward elimination -- Start full, keep removing the worst feature")
 from sklearn.feature_selection import SequentialFeatureSelector
+from sklearn.preprocessing import StandardScaler
 
 from sklearn.metrics import (
     confusion_matrix, roc_curve, roc_auc_score,
@@ -88,14 +89,22 @@ just an assumption."""  # ADDED
 from sklearn.model_selection import cross_val_score  # ADDED
 from sklearn.svm import SVC as _SVC_for_linear_check  # ADDED (avoids shadowing the SVC import used below)
 
-linear_svm_scores = cross_val_score(  # ADDED
-    _SVC_for_linear_check(kernel="linear", C=1, random_state=42),
+# CHANGED: wrap in a small Pipeline so scaling is refit per fold here too,
+# not just in the main pipe_svm below -- this diagnostic uses cv_strategy
+# just like the real search, so it needs the same fix.
+linear_check_pipe = Pipeline([  # ADDED
+    ("scaler", StandardScaler()),  # ADDED
+    ("clf", _SVC_for_linear_check(kernel="linear", C=1, random_state=42))  # ADDED
+])  # ADDED
+
+linear_svm_scores = cross_val_score(
+    linear_check_pipe,  # CHANGED: was `_SVC_for_linear_check(kernel="linear", C=1, random_state=42)`
     X_train_sub, y_train_sub,
     cv=cv_strategy,
     scoring="balanced_accuracy",
     n_jobs=-1
-)  # ADDED
-linear_svm_cv_score = linear_svm_scores.mean()  # ADDED
+)
+linear_svm_cv_score = linear_svm_scores.mean()
 
 print(f"\n--- Linear SVM check (Project.md Step 4) ---")  # ADDED
 print(f"Linear SVM CV balanced accuracy: {linear_svm_cv_score:.3f}")  # ADDED
@@ -117,6 +126,7 @@ search (Lecture 8, Method 1) the previous version actually implemented
 despite being labeled 'multilevel'."""
 
 pipe_svm = Pipeline([
+    ("scaler", StandardScaler()),  # ADDED: refit per fold, fixes Mistake 1 for both coarse and fine grid search
     ("feature_select", SequentialFeatureSelector(
         SVC(kernel="rbf", C=1, gamma="scale", random_state=42),  # fixed probe
         n_features_to_select="auto",
@@ -208,6 +218,13 @@ print(f"Dropped features ({len(dropped_features)}): {dropped_features}")
 
 X_train = X_train[selected_features]
 X_test = X_test[selected_features]
+
+# ADDED: scale the FINAL train/test sets too -- fit on X_train only,
+# applied to X_test, mirroring exactly what 02_preprocessing.py used to
+# do globally, just now scoped correctly to this final, full-data fit.
+final_scaler = StandardScaler()  # ADDED
+X_train = final_scaler.fit_transform(X_train)  # CHANGED: was left as a DataFrame, unscaled
+X_test = final_scaler.transform(X_test)  # ADDED
 # REMOVED: X_train_sub = X_train_sub[selected_features]   <- X_train_sub isn't reused after this point anymore
 
 # =============================================================================

@@ -18,6 +18,7 @@ from sklearn.model_selection import StratifiedKFold, GridSearchCV
 # "Backward elimination -- Start full, keep removing the worst feature";
 # same method already used for kNN and SVM, applied with RF as the judge)
 from sklearn.feature_selection import SequentialFeatureSelector
+from sklearn.preprocessing import StandardScaler  # ADDED
 
 from sklearn.metrics import (
     confusion_matrix, roc_curve, roc_auc_score,
@@ -121,6 +122,9 @@ sqrt(p) given only as the typical default, not a fixed constant."""  # CHANGED: 
 cv_strategy = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
 pipe_rf = Pipeline([
+    ("scaler", StandardScaler()),  # ADDED: refit per fold. Note: doesn't change RF's splits or
+                                    # results at all (trees are invariant to per-feature monotonic
+                                    # rescaling) -- added purely for methodological consistency.
     ("feature_select", SequentialFeatureSelector(
         RandomForestClassifier(n_estimators=200, max_features="sqrt", random_state=42, n_jobs=1),  # fixed probe  # ADDED
         n_features_to_select="auto",
@@ -233,14 +237,20 @@ final_rf = RandomForestClassifier(  # CHANGED: was `final_rf = best_pipeline.nam
     n_jobs=-1   # ADDED: fine to parallelize now -- this is a single fit, not nested inside a search
 )
 
-X_train = X_train[selected_features]   # keep for feature_importances_ / plotting below  # ADDED
+X_train = X_train[selected_features]   # keep for feature_importances_ / plotting below
 X_test = X_test[selected_features]
 
-final_rf.fit(X_train, y_train)  # ADDED: explicit fit on the FULL 15216-row training set
+# ADDED: scale here too, for consistency with kNN/SVM -- has no effect on
+# RF's actual splits or results, since trees only use each feature's
+# ordering, not its scale.
+final_scaler = RFStandardScaler = StandardScaler()  # ADDED
+X_train_scaled_vals = final_scaler.fit_transform(X_train)  # ADDED
+X_test_scaled_vals = final_scaler.transform(X_test)  # ADDED
 
-y_pred = final_rf.predict(X_test)
-y_pred_proba = final_rf.predict_proba(X_test)[:, list(final_rf.classes_).index("g")]
+final_rf.fit(X_train_scaled_vals, y_train)  # CHANGED: was final_rf.fit(X_train, y_train)
 
+y_pred = final_rf.predict(X_test_scaled_vals)  # CHANGED: was final_rf.predict(X_test)
+y_pred_proba = final_rf.predict_proba(X_test_scaled_vals)[:, list(final_rf.classes_).index("g")]  # CHANGED
 
 # =============================================================================
 # SECTION 6: CONFUSION MATRIX (ABSOLUTE AND RELATIVE)
