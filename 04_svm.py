@@ -44,6 +44,15 @@ print(f"X_train: {X_train.shape}, X_test: {X_test.shape}")
 cv_strategy = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
 
+
+plt.style.use("dark_background")
+plt.rcParams["grid.color"] = "#3a3a3a"
+plt.rcParams["grid.alpha"] = 0.6
+
+
+from matplotlib.colors import ListedColormap
+class_cmap = ListedColormap(["deepskyblue", "magenta"])
+
 # =============================================================================
 # SECTION 2: SUBSAMPLE FOR HYPERPARAMETER SEARCH (PRACTICAL NECESSITY)
 # =============================================================================
@@ -238,9 +247,9 @@ for ax, model, title in zip(
      f"RBF Kernel (C={best_C:.3g}, gamma={best_gamma:.3g})"]
 ):
     Z = (model.predict(grid_points) == "g").astype(int).reshape(xx.shape)
-    ax.contourf(xx, yy, Z, alpha=0.3, cmap="coolwarm")
+    ax.contourf(xx, yy, Z, alpha=0.3, cmap=class_cmap)
     ax.scatter(X_train_sub_2d[:, 0], X_train_sub_2d[:, 1],
-               c=y_train_sub_numeric, cmap="coolwarm",
+               c=y_train_sub_numeric, cmap=class_cmap,
                edgecolors="k", s=15, linewidths=0.3)
     ax.set_title(title, fontsize=12)
     ax.set_xlabel("PC1")
