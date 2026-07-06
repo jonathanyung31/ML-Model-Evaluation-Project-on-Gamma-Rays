@@ -276,15 +276,12 @@ best and worst pair."""
 
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
 from sklearn.model_selection import cross_val_score, StratifiedKFold
+from itertools import combinations  # ADDED
 
-pairs_to_plot = [
-    ("fAlpha", "fLength"),
-    ("fAlpha", "fWidth"),
-    ("fAlpha", "fSize"),
-    ("fWidth", "fLength"),
-    ("fConc", "fSize"),
-    ("fConc", "fConc1"),
-]
+# CHANGED: was a hand-picked list of 6 pairs; now every possible pair of the
+# 10 features, so best/worst are chosen from all C(10,2)=45 combinations
+# instead of only the ones we guessed might be interesting.
+pairs_to_plot = list(combinations(feature_cols, 2))  # CHANGED
 
 cv_strategy_eda = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
 
