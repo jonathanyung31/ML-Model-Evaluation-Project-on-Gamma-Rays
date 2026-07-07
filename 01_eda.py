@@ -267,41 +267,15 @@ plt.show()
 print("Plot saved: 03_correlation_matrix.png")
 
 
-
 # SECTION 8: SCATTER PLOTS FOR KEY FEATURE PAIRS
-"""Presentation rule: max ~2 plots per slide. Instead of eyeballing which
-pair looks most/least separable, quantify it with the same metric used
-elsewhere in this project (balanced accuracy via CV), then keep only the
-best and worst pair."""
+"""Presentation rule: max ~2 plots per slide. Pairs are chosen directly from
+the evidence already shown in the histograms (Section X) and correlation
+matrix (Section Y) above, rather than an extra scoring step."""
 
-from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
-from sklearn.model_selection import cross_val_score, StratifiedKFold
-from itertools import combinations  # ADDED
-
-# CHANGED: was a hand-picked list of 6 pairs; now every possible pair of the
-# 10 features, so best/worst are chosen from all C(10,2)=45 combinations
-# instead of only the ones we guessed might be interesting.
-pairs_to_plot = list(combinations(feature_cols, 2))  # CHANGED
-
-cv_strategy_eda = StratifiedKFold(n_splits=5, shuffle=True, random_state=42)
-
-pair_scores = {}
-for x_col, y_col in pairs_to_plot:
-    score = cross_val_score(
-        LinearDiscriminantAnalysis(),
-        df[[x_col, y_col]], df["class"],
-        cv=cv_strategy_eda,
-        scoring="balanced_accuracy"
-    ).mean()
-    pair_scores[(x_col, y_col)] = score
-
-print("\n--- Feature pair separability (LDA balanced accuracy, for slide selection) ---")
-for pair, score in sorted(pair_scores.items(), key=lambda kv: kv[1], reverse=True):
-    print(f"{pair[0]} vs {pair[1]}: {score:.3f}")
-
-best_pair = max(pair_scores, key=pair_scores.get)
-worst_pair = min(pair_scores, key=pair_scores.get)
-pairs_to_plot = [best_pair, worst_pair]
+# fLength vs fAlpha: both flagged as strong discriminators in the histograms
+# fConc vs fM3Trans: correlation matrix showed these are essentially
+# independent (r ~ -0.01), so this pair should show little to no separation
+pairs_to_plot = [("fLength", "fAlpha"), ("fConc", "fM3Trans")]
 
 sample = df.sample(n=2000, random_state=42)
 
@@ -315,11 +289,11 @@ for i, (x_col, y_col) in enumerate(pairs_to_plot):
         ax.scatter(subset[x_col], subset[y_col], alpha=0.3, s=10, color=color, label=label)
     ax.set_xlabel(x_col, fontsize=11)
     ax.set_ylabel(y_col, fontsize=11)
-    tag = "Best separated" if i == 0 else "Worst separated"
-    ax.set_title(f"{tag}: {x_col} vs {y_col} (LDA acc={pair_scores[(x_col, y_col)]:.3f})", fontsize=12)
+    tag = "Strong discriminator pair" if i == 0 else "Weak / redundant pair"
+    ax.set_title(f"{tag}: {x_col} vs {y_col}", fontsize=12)
     ax.legend(fontsize=9)
 
-plt.suptitle("Scatter Plots: Best vs. Worst Separated Feature Pair (sample of 2000)", fontsize=14)
+plt.suptitle("Scatter Plots: Feature Pairs Chosen from EDA Evidence (sample of 2000)", fontsize=14)
 plt.tight_layout()
 plt.savefig(os.path.join("results", "plots", "04_scatter_plots.png"), dpi=150, bbox_inches="tight")
 plt.show()

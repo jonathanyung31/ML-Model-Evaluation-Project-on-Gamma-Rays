@@ -32,7 +32,6 @@ from sklearn.metrics import (
     confusion_matrix, roc_curve, roc_auc_score,
     ConfusionMatrixDisplay
 )
-from sklearn.pipeline import Pipeline
 
 
 plt.style.use("dark_background")
@@ -77,13 +76,11 @@ pipe_knn = Pipeline([
     ("feature_select", SequentialFeatureSelector(
         KNeighborsClassifier(n_neighbors=15),
         n_features_to_select="auto",
-        tol=0.001,
+        tol=0.001,      # tolerance for stopping automatic feature selection (when to stop)
         direction="backward",
         scoring="balanced_accuracy",
         cv=cv_strategy,
-        n_jobs=1    # CHANGED: was -1 -- outer GridSearchCV already
-                  # parallelizes across k values/folds; parallelizing here
-                  # too oversubscribes the CPU (more processes than cores)
+        n_jobs=1  # 1 cpu works on this
     )),
     ("clf", KNeighborsClassifier())
 ], memory=pipe_cache)  # ADDED: cache feature_select's fit per fold (see note above)
@@ -95,7 +92,7 @@ grid_search = GridSearchCV(
     param_grid={"clf__n_neighbors": k_values},
     cv=cv_strategy,
     scoring="balanced_accuracy",
-    n_jobs=-1
+    n_jobs=-1   # use all cpus
 )
 grid_search.fit(X_train, y_train)
 
@@ -128,6 +125,7 @@ ax.plot(k_values, cv_errors, marker="o", color="steelblue")     # dots on each d
 ax.set_xlabel("k (number of neighbors)", fontsize=11)
 ax.set_ylabel("Cross-validated error (1 - balanced accuracy)", fontsize=11)
 ax.set_title("kNN: Validation Error vs. k", fontsize=13)
+ax.set_xticks(k_values)          # ADD THIS — force a tick at every k value, 1 through 20
 ax.grid(True)   # turn on grid lines for easier comparisons
 
 plt.tight_layout()
