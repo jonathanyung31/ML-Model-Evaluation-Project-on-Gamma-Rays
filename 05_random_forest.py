@@ -50,6 +50,12 @@ print("Loaded preprocessed data:")
 print(f"X_train: {X_train.shape}, X_test: {X_test.shape}")
 
 
+plt.style.use("dark_background")
+plt.rcParams["grid.color"] = "#3a3a3a"
+plt.rcParams["grid.alpha"] = 0.6
+
+
+
 # =============================================================================
 # SECTION 2: HYPERPARAMETERS OF RANDOM FOREST
 # =============================================================================
@@ -269,10 +275,10 @@ print(np.round(cm_relative, 3))
 
 fig, axes = plt.subplots(1, 2, figsize=(11, 5))
 
-ConfusionMatrixDisplay(cm, display_labels=["g", "h"]).plot(ax=axes[0], cmap="Oranges")
+ConfusionMatrixDisplay(cm, display_labels=["g", "h"]).plot(ax=axes[0], cmap="summer")
 axes[0].set_title("Absolute Confusion Matrix")
 
-ConfusionMatrixDisplay(cm_relative, display_labels=["g", "h"]).plot(ax=axes[1], cmap="Oranges")
+ConfusionMatrixDisplay(cm_relative, display_labels=["g", "h"]).plot(ax=axes[1], cmap="summer")
 axes[1].set_title("Relative Confusion Matrix")
 
 plt.tight_layout()
@@ -297,7 +303,7 @@ fig, ax = plt.subplots(figsize=(8, 5))
 ax.bar(
     range(len(importances)),
     importances[sorted_idx],
-    color="darkorange",
+    color="lime",
     edgecolor="black"
 )
 
@@ -345,7 +351,7 @@ three models line up directly in 06_evaluation.py."""
 fpr, tpr, thresholds = roc_curve((y_test == "g").astype(int), y_pred_proba)
 
 fig, ax = plt.subplots(figsize=(6, 6))
-ax.plot(fpr, tpr, color="darkorange", label=f"Random Forest (auROC = {auroc:.3f})")
+ax.plot(fpr, tpr, color="lime", label=f"Random Forest (auROC = {auroc:.3f})")
 ax.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Random guessing")
 
 ax.set_xlabel("False Positive Rate (1 - specificity)", fontsize=11)

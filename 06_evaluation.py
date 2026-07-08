@@ -21,6 +21,11 @@ import matplotlib.pyplot as plt
 REQUIRED_FPR_THRESHOLDS = [0.01, 0.02, 0.05, 0.1, 0.2]
 
 
+plt.style.use("dark_background")
+plt.rcParams["grid.color"] = "#3a3a3a"
+plt.rcParams["grid.alpha"] = 0.6
+
+
 # =============================================================================
 # SECTION 1: LOAD SAVED RESULTS
 # =============================================================================
@@ -32,9 +37,9 @@ svm = np.load(os.path.join(results_dir, "svm_results.npz"), allow_pickle=True)
 rf = np.load(os.path.join(results_dir, "rf_results.npz"), allow_pickle=True)
 
 models = {
-    "kNN": {"data": knn, "color": "steelblue"},
-    "SVM": {"data": svm, "color": "darkorange"},
-    "Random Forest": {"data": rf, "color": "seagreen"},
+    "kNN": {"data": knn, "color": "deepskyblue"},
+    "SVM": {"data": svm, "color": "fuchsia"},
+    "Random Forest": {"data": rf, "color": "lime"},
 }
 
 print("Loaded saved results for: " + ", ".join(models.keys()))

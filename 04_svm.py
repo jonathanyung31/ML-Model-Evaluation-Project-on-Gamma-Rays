@@ -359,10 +359,10 @@ print(np.round(cm_relative, 3))
 
 fig, axes = plt.subplots(1, 2, figsize=(11, 5))
 
-ConfusionMatrixDisplay(cm, display_labels=["g", "h"]).plot(ax=axes[0], cmap="Greens")
+ConfusionMatrixDisplay(cm, display_labels=["g", "h"]).plot(ax=axes[0], cmap="pink")
 axes[0].set_title("Absolute Confusion Matrix")
 
-ConfusionMatrixDisplay(cm_relative, display_labels=["g", "h"]).plot(ax=axes[1], cmap="Greens")
+ConfusionMatrixDisplay(cm_relative, display_labels=["g", "h"]).plot(ax=axes[1], cmap="pink")
 axes[1].set_title("Relative Confusion Matrix")
 
 plt.tight_layout()
@@ -399,7 +399,7 @@ print(f"auROC: {auroc:.3f}")
 fpr, tpr, thresholds = roc_curve((y_test == "g").astype(int), y_pred_proba)
 
 fig, ax = plt.subplots(figsize=(6, 6))
-ax.plot(fpr, tpr, color="seagreen", label=f"SVM RBF (auROC = {auroc:.3f})")
+ax.plot(fpr, tpr, color="fuchsia", label=f"SVM RBF (auROC = {auroc:.3f})")
 ax.plot([0, 1], [0, 1], linestyle="--", color="gray", label="Random guessing")
 ax.set_xlabel("False Positive Rate (1 - specificity)", fontsize=11)
 ax.set_ylabel("True Positive Rate (sensitivity)", fontsize=11)
