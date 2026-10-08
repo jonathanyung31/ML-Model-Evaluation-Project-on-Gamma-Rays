@@ -25,9 +25,6 @@ We import the libraries we need:
 # Dataset
 For this Project, we are using the dataset that can be found here: https://archive.ics.uci.edu/dataset/159/magic+gamma+telescope
 
-For more information, read the wiki: https://mygit.th-deg.de/vh03312/machine-learning-26/-/wikis/home
-
-
 # EDA SUMMARY
 
 DATASET:
@@ -38,7 +35,7 @@ DATASET:
 
 CLASS IMBALANCE:
 - ~64.8% gamma, ~35.2% hadron
-- Classes are imbalanced — accuracy is NOT a reliable metric here
+- Classes are imbalanced - accuracy is NOT a reliable metric here
 - We will use ROC-AUC as the primary evaluation metric, supported by
   sensitivity and specificity at relevant thresholds
 - We will use stratified splits to preserve the class ratio in all splits
@@ -57,8 +54,6 @@ PREPROCESSING IMPLICATIONS:
 - Random Forest does NOT require scaling, but we apply it anyway for
   consistency across models
 - Scaler must be fit ONLY on training data to avoid data leakage
-
-# Model evalutaion
 
 
 
